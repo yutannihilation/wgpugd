@@ -1,0 +1,18 @@
+Package: wgpugd
+Title: An WebGPU Graphics Device for R
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Hiroaki",
+           family = "Yutani",
+           role = c("aut", "cre"),
+           email = "yutani.ini@gmail.com",
+           comment = c(ORCID = "0000-0002-3385-7233"))
+Description: A high-performance raster graphics device utilizing the capabilities
+    of GPU hardware via 'WebGPU' API (<https://www.w3.org/TR/webgpu/>). In additon 
+    to the R's graphics device API, the device provides an interface to customize
+    the output with 'WebGPU Shader Language' (WGSL, <https://www.w3.org/TR/WGSL/>)
+    for more advanced usages.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
