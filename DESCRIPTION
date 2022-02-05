@@ -1,5 +1,5 @@
 Package: wgpugd
-Title: An WebGPU Graphics Device for R
+Title: A WebGPU Graphics Device for R
 Version: 0.0.0.9000
 Authors@R: 
     person(given = "Hiroaki",

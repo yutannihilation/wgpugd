@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# wgpugd: An WebGPU Graphics Device for R
+# wgpugd: A WebGPU Graphics Device for R
 
 <!-- badges: start -->
 <!-- badges: end -->
@@ -15,7 +15,7 @@ capabilities of GPU hardware.
 
 ### What is wgpu?
 
-There are two major libraries that implement WebGPU standard; one is
+There are two major libraries that implement the WebGPU standard; one is
 [Dawn](https://dawn.googlesource.com/dawn) (used in Chrome), and the
 other one is [wgpu](https://wgpu.rs/), a pure-Rust implementation.
 
@@ -25,8 +25,8 @@ used in many places in the Rust’s graphics ecosystem.
 ### Why WebGPU for R?
 
 The main motivation is to add post-effect to graphics with [WebGPU
-Shader Language (WGSL)](https://www.w3.org/TR/WGSL/%3E). But of course
-the power of GPU should simply contribute to the high-performance.
+Shader Language (WGSL)](https://www.w3.org/TR/WGSL/%3E). But, of course,
+the power of GPU should simply contribute to high performance!
 
 ## Installation
 
