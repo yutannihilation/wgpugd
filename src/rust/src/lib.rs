@@ -22,10 +22,14 @@ struct Vertex {
 
 #[rustfmt::skip]
 const VERTICES: &[Vertex] = &[
-    Vertex { position: [0.0,   0.5], color: [1.0, 0.0, 0.0] },
-    Vertex { position: [-0.5, -0.5], color: [0.0, 1.0, 0.0] },
-    Vertex { position: [0.5,  -0.5], color: [0.0, 0.0, 1.0] },
+    Vertex { position: [-0.0868241, 0.49240386], color: [0.5, 0.0, 0.5] },
+    Vertex { position: [-0.49513406, 0.06958647], color: [0.5, 0.0, 0.5] },
+    Vertex { position: [-0.21918549, -0.44939706], color: [0.5, 0.0, 0.5] },
+    Vertex { position: [0.35966998, -0.3473291], color: [0.5, 0.0, 0.5] },
+    Vertex { position: [0.44147372, 0.2347359], color: [0.5, 0.0, 0.5] },
 ];
+
+const INDICES: &[u32] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
@@ -50,6 +54,8 @@ struct WgpuGraphicsDevice {
 
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    num_indices: u32,
 
     width: u32,
     height: u32,
@@ -173,6 +179,12 @@ impl WgpuGraphicsDevice {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("wgpugd index buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
         Self {
             device,
             queue,
@@ -182,6 +194,8 @@ impl WgpuGraphicsDevice {
 
             render_pipeline,
             vertex_buffer,
+            index_buffer,
+            num_indices: INDICES.len() as _,
 
             width,
             height,
@@ -221,7 +235,8 @@ impl WgpuGraphicsDevice {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..3, 0..1);
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
 
             // Return the ownership. Otherwise the next operation on encoder would fail
             drop(render_pass);
