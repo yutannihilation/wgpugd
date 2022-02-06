@@ -9,6 +9,8 @@ crate-type = ["staticlib"]
 [dependencies]
 extendr-api = { git = "https://github.com/yutannihilation/extendr", branch = "feature/graphics-feature-gate", features = ["graphics"] }
 lyon = "0.17"
+png = "0.17"
+pollster = "0.2"
 wgpu = "0.12"
 
 [patch.crates-io]
