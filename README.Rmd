@@ -51,16 +51,9 @@ devtools::install_github("yutannihilation/wgpugd")
 
 ```{r}
 library(wgpugd)
-library(ggplot2)
 
 wgpugd(10, 10)
-
-# Now all plots are ignored at all...
-set.seed(10)
-dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
-ggplot(dsamp, aes(carat, price)) +
-  geom_point(aes(colour = clarity))
-
+hist(1:100)
 dev.off()
 
 knitr::include_graphics("tmp_wgpugd.png")

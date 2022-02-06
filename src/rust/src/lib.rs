@@ -10,36 +10,48 @@ use extendr_api::{
     prelude::*,
 };
 
-use wgpu::include_wgsl;
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, VERTEX_STRIDE_ALIGNMENT};
+
+use lyon::path::iterator::PathIterator;
+use lyon::path::Path;
+use lyon::tessellation;
+use lyon::tessellation::geometry_builder::*;
+use lyon::tessellation::{FillOptions, FillTessellator};
+use lyon::tessellation::{StrokeOptions, StrokeTessellator, StrokeVertex};
+use lyon::{lyon_tessellation::StrokeBuilder, path::builder::PathBuilder};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 2],
-    color: [f32; 3],
+    // TODO: probably, the color should be passed to GPU separately and subset by ID.
+    //       using 4 x 32-bit per-Vertex is redundant.
+    color: [f32; 4],
 }
-
-#[rustfmt::skip]
-const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.0868241, 0.49240386], color: [0.5, 0.0, 0.5] },
-    Vertex { position: [-0.49513406, 0.06958647], color: [0.5, 0.0, 0.5] },
-    Vertex { position: [-0.21918549, -0.44939706], color: [0.5, 0.0, 0.5] },
-    Vertex { position: [0.35966998, -0.3473291], color: [0.5, 0.0, 0.5] },
-    Vertex { position: [0.44147372, 0.2347359], color: [0.5, 0.0, 0.5] },
-];
-
-const INDICES: &[u32] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x3];
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
 
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
+struct VertexCtor {
+    color: [f32; 4],
+}
+
+impl StrokeVertexConstructor<Vertex> for VertexCtor {
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
+        let pos = vertex.position();
+        Vertex {
+            position: pos.into(),
+            color: self.color,
         }
     }
 }
@@ -53,12 +65,17 @@ struct WgpuGraphicsDevice {
     output_buffer: wgpu::Buffer,
 
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
 
+    geometry: VertexBuffers<Vertex, u32>,
+
+    // width and height in point
     width: u32,
     height: u32,
+
+    // inverse of width and height
+    x_scale: f32,
+    y_scale: f32,
+
     unpadded_bytes_per_row: u32,
     padded_bytes_per_row: u32,
 }
@@ -136,7 +153,7 @@ impl WgpuGraphicsDevice {
                 push_constant_ranges: &[],
             });
 
-        let shader = device.create_shader_module(&include_wgsl!("shaders/shader.wgsl"));
+        let shader = device.create_shader_module(&wgpu::include_wgsl!("shaders/shader.wgsl"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("wgpugd render pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -149,7 +166,7 @@ impl WgpuGraphicsDevice {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None, // TODO: revert
                 unclipped_depth: false,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
@@ -173,17 +190,7 @@ impl WgpuGraphicsDevice {
             multiview: None,
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("wgpugd vertex buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("wgpugd index buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        let geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
 
         Self {
             device,
@@ -193,18 +200,38 @@ impl WgpuGraphicsDevice {
             output_buffer,
 
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices: INDICES.len() as _,
+
+            geometry,
 
             width,
             height,
+            x_scale: 1. / width as f32,
+            y_scale: 1. / height as f32,
+
             unpadded_bytes_per_row: unpadded_bytes_per_row as _,
             padded_bytes_per_row: padded_bytes_per_row as _,
         }
     }
 
     fn render(&mut self) -> extendr_api::Result<()> {
+        let vertex_buffer = &self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("wgpugd vertex buffer"),
+                contents: bytemuck::cast_slice(self.geometry.vertices.as_slice()),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+
+        let index_buffer = &self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("wgpugd index buffer"),
+                contents: bytemuck::cast_slice(self.geometry.indices.as_slice()),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+
+        let num_indices = self.geometry.indices.len() as u32;
+
         let texture_view = self
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -234,9 +261,9 @@ impl WgpuGraphicsDevice {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..num_indices, 0, 0..1);
 
             // Return the ownership. Otherwise the next operation on encoder would fail
             drop(render_pass);
@@ -311,7 +338,45 @@ impl WgpuGraphicsDevice {
 impl DeviceDriver for WgpuGraphicsDevice {
     const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::Device;
 
+    fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        reprintln!("[DEBUG] from: {from:?}, to: {to:?}");
+
+        // TODO: this should be super slow because this allocates Vec all the times.
+        // Probably we need a buffer for PathEvent and render it on flush.
+        let mut builder = Path::builder();
+
+        // TODO: Move the calculation to shader
+        builder.begin(lyon::math::point(
+            2f32 * from.0 as f32 * self.x_scale - 1f32,
+            2f32 * from.1 as f32 * self.y_scale - 1f32,
+        ));
+        builder.line_to(lyon::math::point(
+            2f32 * to.0 as f32 * self.x_scale - 1f32,
+            2f32 * to.1 as f32 * self.y_scale - 1f32,
+        ));
+        builder.close();
+        let path = builder.build();
+
+        let mut stroke_tess = StrokeTessellator::new();
+        let stroke_options = &StrokeOptions::tolerance(0.01).with_line_width(0.2);
+
+        let ctxt = VertexCtor {
+            color: crate::util::i32_to_rgba(gc.col),
+        };
+
+        stroke_tess
+            .tessellate_path(
+                &path,
+                stroke_options,
+                &mut BuffersBuilder::new(&mut self.geometry, ctxt),
+            )
+            .unwrap();
+    }
+
     fn close(&mut self, _: DevDesc) {
+        rprintln!("[DEBUG] vertex: {:?}", self.geometry.vertices);
+        rprintln!("[DEBUG] index: {:?}", self.geometry.indices);
+
         self.render().unwrap();
         pollster::block_on(self.write_png());
     }

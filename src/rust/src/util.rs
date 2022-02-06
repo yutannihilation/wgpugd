@@ -5,9 +5,9 @@ use extendr_api::prelude::*;
 // "#RRGGBBAA" format.
 //
 // https://github.com/wch/r-source/blob/8ebcb33a9f70e729109b1adf60edd5a3b22d3c6f/src/include/R_ext/GraphicsDevice.h#L766-L796
-pub(crate) fn i32_to_csscolor(x: i32) -> String {
+pub(crate) fn i32_to_rgba(x: i32) -> [f32; 4] {
     if x.is_na() {
-        return "transparent".to_string();
+        return [0.0, 0.0, 0.0, 0.0];
     }
 
     let x: u32 = unsafe { std::mem::transmute(x) };
@@ -17,5 +17,10 @@ pub(crate) fn i32_to_csscolor(x: i32) -> String {
     let b = (x >> 16) & 255;
     let a = (x >> 24) & 255;
 
-    todo!()
+    [
+        (r as f32) / 255.,
+        (g as f32) / 255.,
+        (b as f32) / 255.,
+        (a as f32) / 255.,
+    ]
 }
