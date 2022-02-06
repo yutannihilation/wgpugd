@@ -1,0 +1,28 @@
+# WIN is used in the usual rwinlib Makevars, but it seems WIN envvar is not
+# available when configure.win is used. So, R_ARCH is chosen here.
+TARGET = $(subst /x64,x86_64,$(subst /i386,i686,$(R_ARCH)))-pc-windows-gnu
+
+TOOLCHAIN = stable-msvc
+
+LIBDIR = ./rust/target/$(TARGET)/release
+
+# -ld3dcompiler is for Direct3D API, needed only for Windows (and probably we
+# can disable this by limiting the backends to Vulkan)
+PKG_LIBS = -L$(LIBDIR) -lwgpugd -lws2_32 -ladvapi32 -luserenv -lbcrypt -ld3dcompiler
+STATLIB = $(LIBDIR)/libwgpugd.a
+
+all: C_clean
+
+$(SHLIB): $(STATLIB)
+
+$(STATLIB):
+	@BEFORE_CARGO_BUILD@ cargo +$(TOOLCHAIN) build --target=$(TARGET) --lib --release --manifest-path=./rust/Cargo.toml
+	@AFTER_CARGO_BUILD@
+
+C_clean:
+	rm -Rf $(SHLIB) $(OBJECTS) @CLEAN_EXTRA@
+
+clean:
+	rm -Rf $(SHLIB) $(OBJECTS) $(STATLIB) rust/target
+
+.PHONY: all C_clean clean
