@@ -31,10 +31,10 @@ impl WgpuGraphicsDevice {
         // Set envvar WGPU_BACKEND to specific backend (e.g., vulkan, dx12, metal, opengl)
         let backend = wgpu::util::backend_bits_from_env().unwrap_or_else(wgpu::Backends::all);
 
-        // An `Instance` is "Context for all other wgpu objects"
+        // An `Instance` is a "context for all other wgpu objects"
         let instance = wgpu::Instance::new(backend);
 
-        // An `Adapter` is "Handle to a physical graphics"
+        // An `Adapter` is a "handle to a physical graphics"
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -44,6 +44,7 @@ impl WgpuGraphicsDevice {
             .await
             .unwrap();
 
+        // A `Device` is a "connection to a graphics device" and a `Queue` is a command queue.
         let (device, queue) = adapter
             .request_device(&Default::default(), None)
             .await
@@ -60,10 +61,14 @@ impl WgpuGraphicsDevice {
             label: Some("wgpugd texture descriptor"),
             size: texture_extent,
             mip_level_count: 1,
+            // TODO: change this to 4 when enabling MSAA
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            // The texture is a rendering target and passed in
+            // `color_attachments`, so `RENDER_ATTACHMENT` is needed. Also, it's
+            // where the image is copied from so `COPY_SRC` is needed.
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
         });
 
         // This code is from the example on the wgpu's repo. Why this is needed?
@@ -119,10 +124,14 @@ impl WgpuGraphicsDevice {
                     view: &texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::RED), // all pixel of the image should be red
+                        // TODO: set the proper error from the value of gp->bg
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: true,
                     },
                 }],
+                // Since wgpugd is a 2D graphics device, we don't need the depth
+                // buffers. However, stencil buffers might be used for masking
+                // and clipping features. I don't figure out yet...
                 depth_stencil_attachment: None,
             });
 
