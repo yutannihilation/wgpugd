@@ -9,6 +9,7 @@ use extendr_api::{
     },
     prelude::*,
 };
+use wgpu::include_wgsl;
 
 #[allow(dead_code)]
 struct WgpuGraphicsDevice {
@@ -17,6 +18,8 @@ struct WgpuGraphicsDevice {
     texture: wgpu::Texture,
     texture_extent: wgpu::Extent3d,
     output_buffer: wgpu::Buffer,
+
+    render_pipeline: wgpu::RenderPipeline,
 
     width: u32,
     height: u32,
@@ -92,12 +95,58 @@ impl WgpuGraphicsDevice {
             mapped_at_creation: false,
         });
 
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("wgpugd render pipeline layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+
+        let shader = device.create_shader_module(&include_wgsl!("shaders/shader.wgsl"));
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("wgpugd render pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[],
+            },
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            // TOOO: Use MSAA
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::all(),
+                }],
+            }),
+            multiview: None,
+        });
+
         Self {
             device,
             queue,
             texture,
             texture_extent,
             output_buffer,
+
+            render_pipeline,
 
             width,
             height,
@@ -118,22 +167,27 @@ impl WgpuGraphicsDevice {
             });
 
         {
-            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("wgpugd render pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &texture_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        // TODO: set the proper error from the value of gp->bg
-                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                        store: true,
-                    },
-                }],
-                // Since wgpugd is a 2D graphics device, we don't need the depth
-                // buffers. However, stencil buffers might be used for masking
-                // and clipping features. I don't figure out yet...
-                depth_stencil_attachment: None,
-            });
+            {
+                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("wgpugd render pass"),
+                    color_attachments: &[wgpu::RenderPassColorAttachment {
+                        view: &texture_view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            // TODO: set the proper error from the value of gp->bg
+                            load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                            store: true,
+                        },
+                    }],
+                    // Since wgpugd is a 2D graphics device, we don't need the depth
+                    // buffers. However, stencil buffers might be used for masking
+                    // and clipping features. I don't figure out yet...
+                    depth_stencil_attachment: None,
+                });
+
+                render_pass.set_pipeline(&self.render_pipeline);
+                render_pass.draw(0..3, 0..1);
+            }
 
             encoder.copy_texture_to_buffer(
                 self.texture.as_image_copy(),
