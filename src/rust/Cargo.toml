@@ -7,6 +7,7 @@ edition = "2021"
 crate-type = ["staticlib"]
 
 [dependencies]
+bytemuck = { version = "1.7", features = [ "derive" ] }
 extendr-api = { git = "https://github.com/yutannihilation/extendr", branch = "feature/graphics-feature-gate", features = ["graphics"] }
 lyon = "0.17"
 png = "0.17"

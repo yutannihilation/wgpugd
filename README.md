@@ -44,6 +44,8 @@ development! :warning:
 ``` r
 library(wgpugd)
 library(ggplot2)
+#> Warning in register(): Can't find generic `scale_type` in package ggplot2 to
+#> register S3 method.
 
 wgpugd(10, 10)
 
@@ -61,3 +63,15 @@ knitr::include_graphics("tmp_wgpugd.png")
 ```
 
 <img src="tmp_wgpugd.png" width="100%" />
+
+## References
+
+-   wgpugd uses [extendr](https://extendr.github.io/), a Rust extension
+    mechanism for R, both to communicate with the actual graphics device
+    implementation in Rust from R, and to access R’s graphics API from
+    Rust.
+-   If you are curious about developing a Rust program with wgpu, I’d
+    recommend [Learn Wgpu](https://sotrh.github.io/learn-wgpu/) to get
+    started.
+-   [lyon](https://github.com/nical/lyon) is a library for “path
+    tessellation,” which is necessary to draw lines on GPU.

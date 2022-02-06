@@ -9,7 +9,36 @@ use extendr_api::{
     },
     prelude::*,
 };
+
 use wgpu::include_wgsl;
+use wgpu::util::DeviceExt;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 2],
+    color: [f32; 3],
+}
+
+#[rustfmt::skip]
+const VERTICES: &[Vertex] = &[
+    Vertex { position: [0.0,   0.5], color: [1.0, 0.0, 0.0] },
+    Vertex { position: [-0.5, -0.5], color: [0.0, 1.0, 0.0] },
+    Vertex { position: [0.5,  -0.5], color: [0.0, 0.0, 1.0] },
+];
+
+impl Vertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x3];
+
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
 
 #[allow(dead_code)]
 struct WgpuGraphicsDevice {
@@ -20,14 +49,13 @@ struct WgpuGraphicsDevice {
     output_buffer: wgpu::Buffer,
 
     render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
 
     width: u32,
     height: u32,
     unpadded_bytes_per_row: u32,
     padded_bytes_per_row: u32,
 }
-
-const POINT: f64 = 12.0;
 
 impl WgpuGraphicsDevice {
     async fn new(width: u32, height: u32) -> Self {
@@ -109,7 +137,7 @@ impl WgpuGraphicsDevice {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[],
+                buffers: &[Vertex::desc()],
             },
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
@@ -139,6 +167,12 @@ impl WgpuGraphicsDevice {
             multiview: None,
         });
 
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("wgpugd vertex buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         Self {
             device,
             queue,
@@ -147,6 +181,7 @@ impl WgpuGraphicsDevice {
             output_buffer,
 
             render_pipeline,
+            vertex_buffer,
 
             width,
             height,
@@ -167,27 +202,29 @@ impl WgpuGraphicsDevice {
             });
 
         {
-            {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("wgpugd render pass"),
-                    color_attachments: &[wgpu::RenderPassColorAttachment {
-                        view: &texture_view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            // TODO: set the proper error from the value of gp->bg
-                            load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                            store: true,
-                        },
-                    }],
-                    // Since wgpugd is a 2D graphics device, we don't need the depth
-                    // buffers. However, stencil buffers might be used for masking
-                    // and clipping features. I don't figure out yet...
-                    depth_stencil_attachment: None,
-                });
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("wgpugd render pass"),
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: &texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        // TODO: set the proper error from the value of gp->bg
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: true,
+                    },
+                }],
+                // Since wgpugd is a 2D graphics device, we don't need the depth
+                // buffers. However, stencil buffers might be used for masking
+                // and clipping features. I don't figure out yet...
+                depth_stencil_attachment: None,
+            });
 
-                render_pass.set_pipeline(&self.render_pipeline);
-                render_pass.draw(0..3, 0..1);
-            }
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.draw(0..3, 0..1);
+
+            // Return the ownership. Otherwise the next operation on encoder would fail
+            drop(render_pass);
 
             encoder.copy_texture_to_buffer(
                 self.texture.as_image_copy(),
