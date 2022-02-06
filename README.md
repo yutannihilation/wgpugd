@@ -35,3 +35,29 @@ You can install the development version of wgpugd like so:
 ``` r
 devtools::install_github("yutannihilation/wgpugd")
 ```
+
+## Usages
+
+:warning: wgpugd is currently at its verrry early stage of the
+development! :warning:
+
+``` r
+library(wgpugd)
+library(ggplot2)
+
+wgpugd(10, 10)
+
+# Now all plots are ignored at all...
+set.seed(10)
+dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
+ggplot(dsamp, aes(carat, price)) +
+  geom_point(aes(colour = clarity))
+
+dev.off()
+#> png 
+#>   2
+
+knitr::include_graphics("tmp_wgpugd.png")
+```
+
+<img src="tmp_wgpugd.png" width="100%" />
