@@ -327,8 +327,7 @@ fn wgpugd(width: i32, height: i32) {
     let device_driver = pollster::block_on(WgpuGraphicsDevice::new(width_pt as _, height_pt as _));
 
     let device_descriptor =
-        // In SVG's coordinate y=0 is at top, so, we need to flip it by setting bottom > top.
-        DeviceDescriptor::new().device_size(0.0, width_pt as _, height_pt as _, 0.0);
+        DeviceDescriptor::new().device_size(0.0, width_pt as _, 0.0, height_pt as _);
 
     device_driver.create_device::<WgpuGraphicsDevice>(device_descriptor, "wgpugd");
 }

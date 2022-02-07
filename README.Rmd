@@ -53,7 +53,9 @@ devtools::install_github("yutannihilation/wgpugd")
 library(wgpugd)
 
 wgpugd(10, 10)
-hist(1:100)
+set.seed(10)
+col <- viridisLite::viridis(20, option = "H")
+plot(runif(20), col = col, cex = 5, lwd = 10)
 dev.off()
 
 knitr::include_graphics("tmp_wgpugd.png")
