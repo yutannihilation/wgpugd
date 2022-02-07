@@ -1,24 +1,16 @@
+mod graphics_device;
 mod util;
 
 use std::fs::File;
 use std::io::Write;
 
 use extendr_api::{
-    graphics::{
-        ClippingStrategy, DevDesc, DeviceDescriptor, DeviceDriver, R_GE_gcontext, TextMetric,
-    },
+    graphics::{DeviceDescriptor, DeviceDriver},
     prelude::*,
 };
 
-use wgpu::{util::DeviceExt, VERTEX_STRIDE_ALIGNMENT};
-
-use lyon::path::iterator::PathIterator;
-use lyon::path::Path;
-use lyon::tessellation;
-use lyon::tessellation::geometry_builder::*;
-use lyon::tessellation::{FillOptions, FillTessellator};
-use lyon::tessellation::{StrokeOptions, StrokeTessellator, StrokeVertex};
-use lyon::{lyon_tessellation::StrokeBuilder, path::builder::PathBuilder};
+use lyon::lyon_tessellation::VertexBuffers;
+use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -38,20 +30,6 @@ impl Vertex {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
-        }
-    }
-}
-
-struct VertexCtor {
-    color: [f32; 4],
-}
-
-impl StrokeVertexConstructor<Vertex> for VertexCtor {
-    fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
-        let pos = vertex.position();
-        Vertex {
-            position: pos.into(),
-            color: self.color,
         }
     }
 }
@@ -332,53 +310,6 @@ impl WgpuGraphicsDevice {
 
             self.output_buffer.unmap();
         }
-    }
-}
-
-impl DeviceDriver for WgpuGraphicsDevice {
-    const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::Device;
-
-    fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        reprintln!("[DEBUG] from: {from:?}, to: {to:?}");
-
-        // TODO: this should be super slow because this allocates Vec all the times.
-        // Probably we need a buffer for PathEvent and render it on flush.
-        let mut builder = Path::builder();
-
-        // TODO: Move the calculation to shader
-        builder.begin(lyon::math::point(
-            2f32 * from.0 as f32 * self.x_scale - 1f32,
-            2f32 * from.1 as f32 * self.y_scale - 1f32,
-        ));
-        builder.line_to(lyon::math::point(
-            2f32 * to.0 as f32 * self.x_scale - 1f32,
-            2f32 * to.1 as f32 * self.y_scale - 1f32,
-        ));
-        builder.close();
-        let path = builder.build();
-
-        let mut stroke_tess = StrokeTessellator::new();
-        let stroke_options = &StrokeOptions::tolerance(0.01).with_line_width(0.2);
-
-        let ctxt = VertexCtor {
-            color: crate::util::i32_to_rgba(gc.col),
-        };
-
-        stroke_tess
-            .tessellate_path(
-                &path,
-                stroke_options,
-                &mut BuffersBuilder::new(&mut self.geometry, ctxt),
-            )
-            .unwrap();
-    }
-
-    fn close(&mut self, _: DevDesc) {
-        rprintln!("[DEBUG] vertex: {:?}", self.geometry.vertices);
-        rprintln!("[DEBUG] index: {:?}", self.geometry.indices);
-
-        self.render().unwrap();
-        pollster::block_on(self.write_png());
     }
 }
 
