@@ -28,8 +28,7 @@ fn vs_main(
     //
     // https://github.com/wch/r-source/blob/8ebcb33a9f70e729109b1adf60edd5a3b22d3c6f/src/include/R_ext/GraphicsDevice.h#L766-L796 
     // https://www.w3.org/TR/WGSL/#unpack-builtin-functions
-    let c: vec4<f32> = unpack4x8unorm(model.color);
-    out.color  = vec4<f32>(c.r, c.g, c.b, c.a);
+    out.color = unpack4x8unorm(model.color);
 
     // Scale the positions to [-1, 1]
     out.coords = vec4<f32>(2.0 * model.pos / globals.resolution - 1.0, 0.0, 1.0);

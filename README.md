@@ -46,8 +46,8 @@ library(wgpugd)
 
 wgpugd(10, 10)
 set.seed(10)
-col <- viridisLite::viridis(20, option = "H")
-plot(runif(20), col = col, cex = 5, lwd = 10)
+bg <- scales::alpha(viridisLite::viridis(20, option = "H"), 0.3)
+plot(runif(20), bg = bg, cex = 40, lwd = 2, pch = 21)
 dev.off()
 #> png 
 #>   2

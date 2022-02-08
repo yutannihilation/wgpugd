@@ -98,7 +98,8 @@ impl WgpuGraphicsDevice {
             // TODO: change this to 4 when enabling MSAA
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            // R don't use sRGB, so don't choose Rgba8UnormSrgb here!
+            format: wgpu::TextureFormat::Rgba8Unorm,
             // The texture is a rendering target and passed in
             // `color_attachments`, so `RENDER_ATTACHMENT` is needed. Also, it's
             // where the image is copied from so `COPY_SRC` is needed.
@@ -194,8 +195,8 @@ impl WgpuGraphicsDevice {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::all(),
                 }],
             }),

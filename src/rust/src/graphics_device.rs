@@ -113,6 +113,23 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let path = builder.build();
 
         //
+        // **** Tessellate fill ***************************
+        //
+
+        let mut fill_tess = FillTessellator::new();
+        let fill_options = &FillOptions::tolerance(tolerance);
+
+        let ctxt = VertexCtor::new(fill);
+
+        fill_tess
+            .tessellate_path(
+                &path,
+                fill_options,
+                &mut BuffersBuilder::new(&mut self.geometry, ctxt),
+            )
+            .unwrap();
+
+        //
         // **** Tessellate stroke ***************************
         //
 
@@ -128,32 +145,32 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
                 &mut BuffersBuilder::new(&mut self.geometry, ctxt),
             )
             .unwrap();
+    }
+
+    fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
+        let color = gc.col;
+        let fill = gc.fill;
+        let line_width = gc.lwd as f32;
+        // TODO: determine tolerance nicely
+        let tolerance = 0.01;
 
         //
         // **** Tessellate fill ***************************
         //
 
-        // TODO: Why doesn't fill work?
+        let mut fill_tess = FillTessellator::new();
+        let fill_options = &FillOptions::tolerance(tolerance);
 
-        // let mut fill_tess = FillTessellator::new();
-        // let fill_options = &FillOptions::tolerance(tolerance);
+        let ctxt = VertexCtor::new(fill);
 
-        // let ctxt = VertexCtor { color: fill };
-
-        // fill_tess
-        //     .tessellate_path(
-        //         &path,
-        //         fill_options,
-        //         &mut BuffersBuilder::new(&mut self.geometry, ctxt),
-        //     )
-        //     .unwrap();
-    }
-
-    fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        let color = gc.col;
-        let line_width = gc.lwd as f32;
-        // TODO: determine tolerance nicely
-        let tolerance = 0.01;
+        fill_tess
+            .tessellate_circle(
+                lyon::math::point(center.0 as _, center.1 as _),
+                r as f32,
+                fill_options,
+                &mut BuffersBuilder::new(&mut self.geometry, ctxt),
+            )
+            .unwrap();
 
         //
         // **** Tessellate stroke ***************************
@@ -172,27 +189,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
                 &mut BuffersBuilder::new(&mut self.geometry, ctxt),
             )
             .unwrap();
-
-        //
-        // **** Tessellate fill ***************************
-        //
-
-        // let mut fill_tess = FillTessellator::new();
-        // let fill_options = &FillOptions::tolerance(tolerance);
-
-        // let ctxt = VertexCtor {
-        //     color: [0.3, 0.1, 0.2, 1.0],
-        // };
-
-        // fill_tess
-        //     .tessellate_circle(
-        //         lyon::math::point(
-        //              lyon::math::point(center.0 as _, center.1 as _),
-        //         r as f32,
-        //         fill_options,
-        //         &mut BuffersBuilder::new(&mut self.geometry, ctxt),
-        //     )
-        //     .unwrap();
     }
 
     fn close(&mut self, _: DevDesc) {
