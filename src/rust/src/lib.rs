@@ -34,6 +34,12 @@ impl Vertex {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Globals {
+    resolution: [f32; 2],
+}
+
 #[allow(dead_code)]
 struct WgpuGraphicsDevice {
     device: wgpu::Device,
@@ -42,6 +48,9 @@ struct WgpuGraphicsDevice {
     texture_extent: wgpu::Extent3d,
     output_buffer: wgpu::Buffer,
 
+    globals_bind_group: wgpu::BindGroup,
+    globals_uniform_buffer: wgpu::Buffer,
+
     render_pipeline: wgpu::RenderPipeline,
 
     geometry: VertexBuffers<Vertex, u32>,
@@ -49,10 +58,6 @@ struct WgpuGraphicsDevice {
     // width and height in point
     width: u32,
     height: u32,
-
-    // inverse of width and height
-    x_scale: f32,
-    y_scale: f32,
 
     unpadded_bytes_per_row: u32,
     padded_bytes_per_row: u32,
@@ -124,10 +129,42 @@ impl WgpuGraphicsDevice {
             mapped_at_creation: false,
         });
 
+        let globals_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("wgpugd uniform buffer for globals"),
+            contents: bytemuck::cast_slice(&[Globals {
+                resolution: [width as _, height as _],
+            }]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+
+        let globals_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("wgpugd globals bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("wgpugd globals bind group"),
+            layout: &globals_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: globals_uniform_buffer.as_entire_binding(),
+            }],
+        });
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("wgpugd render pipeline layout"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&globals_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -177,14 +214,15 @@ impl WgpuGraphicsDevice {
             texture_extent,
             output_buffer,
 
+            globals_bind_group,
+            globals_uniform_buffer,
+
             render_pipeline,
 
             geometry,
 
             width,
             height,
-            x_scale: 1. / width as f32,
-            y_scale: 1. / height as f32,
 
             unpadded_bytes_per_row: unpadded_bytes_per_row as _,
             padded_bytes_per_row: padded_bytes_per_row as _,
@@ -239,6 +277,7 @@ impl WgpuGraphicsDevice {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..num_indices, 0, 0..1);

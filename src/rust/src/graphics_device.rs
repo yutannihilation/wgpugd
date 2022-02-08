@@ -8,9 +8,6 @@ use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator, FillVertex};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator, StrokeVertex};
 
-// TODO: Why does this needed?
-const LINE_WIDTH_ADJUST: f32 = 2.0;
-
 struct VertexCtor {
     color: [f32; 4],
 }
@@ -40,8 +37,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         let color = crate::util::i32_to_rgba(gc.col);
-        // TODO: Why the line looks thinner than expected?
-        let line_width = gc.lwd as f32 * self.x_scale * LINE_WIDTH_ADJUST;
+        let line_width = gc.lwd as f32;
         // TODO: determine tolerance nicely
         let tolerance = 0.01;
 
@@ -53,15 +49,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         // **** Build path ***************************
         //
 
-        // TODO: Move the calculation to shader
-        builder.begin(lyon::math::point(
-            2f32 * from.0 as f32 * self.x_scale - 1f32,
-            2f32 * from.1 as f32 * self.y_scale - 1f32,
-        ));
-        builder.line_to(lyon::math::point(
-            2f32 * to.0 as f32 * self.x_scale - 1f32,
-            2f32 * to.1 as f32 * self.y_scale - 1f32,
-        ));
+        builder.begin(lyon::math::point(from.0 as _, from.1 as _));
+        builder.line_to(lyon::math::point(to.0 as _, to.1 as _));
         builder.close();
         let path = builder.build();
 
@@ -91,8 +80,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     ) {
         let color = crate::util::i32_to_rgba(gc.col);
         let fill = crate::util::i32_to_rgba(gc.fill);
-        // TODO: Why the line looks thinner than expected?
-        let line_width = gc.lwd as f32 * self.x_scale * LINE_WIDTH_ADJUST;
+        let line_width = gc.lwd as f32;
+
         // TODO: determine tolerance nicely
         let tolerance = 0.01;
 
@@ -106,16 +95,10 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
 
         // First point
         let (x, y) = coords.next().unwrap();
-        builder.begin(lyon::math::point(
-            2f32 * x as f32 * self.x_scale - 1f32,
-            2f32 * y as f32 * self.y_scale - 1f32,
-        ));
+        builder.begin(lyon::math::point(x as _, y as _));
 
         coords.for_each(|(x, y)| {
-            builder.line_to(lyon::math::point(
-                2f32 * x as f32 * self.x_scale - 1f32,
-                2f32 * y as f32 * self.y_scale - 1f32,
-            ));
+            builder.line_to(lyon::math::point(x as _, y as _));
         });
         builder.close();
 
@@ -160,10 +143,9 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
         let color = crate::util::i32_to_rgba(gc.col);
-        // TODO: Why the line looks thinner than expected?
-        let line_width = gc.lwd as f32 * self.x_scale * LINE_WIDTH_ADJUST;
+        let line_width = gc.lwd as f32;
         // TODO: determine tolerance nicely
-        let tolerance = 0.001;
+        let tolerance = 0.01;
 
         //
         // **** Tessellate stroke ***************************
@@ -176,11 +158,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
 
         stroke_tess
             .tessellate_circle(
-                lyon::math::point(
-                    2f32 * center.0 as f32 * self.x_scale - 1f32,
-                    2f32 * center.1 as f32 * self.y_scale - 1f32,
-                ),
-                r as f32 * self.x_scale * LINE_WIDTH_ADJUST,
+                lyon::math::point(center.0 as _, center.1 as _),
+                r as f32,
                 stroke_options,
                 &mut BuffersBuilder::new(&mut self.geometry, ctxt),
             )
@@ -200,10 +179,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         // fill_tess
         //     .tessellate_circle(
         //         lyon::math::point(
-        //             2f32 * center.0 as f32 * self.x_scale - 1f32,
-        //             2f32 * center.1 as f32 * self.y_scale - 1f32,
-        //         ),
-        //         2f32 * r as f32 * self.x_scale - 1f32,
+        //              lyon::math::point(center.0 as _, center.1 as _),
+        //         r as f32,
         //         fill_options,
         //         &mut BuffersBuilder::new(&mut self.geometry, ctxt),
         //     )
