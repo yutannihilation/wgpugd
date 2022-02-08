@@ -1,5 +1,4 @@
 mod graphics_device;
-mod util;
 
 use std::fs::File;
 use std::io::Write;
@@ -16,14 +15,12 @@ use wgpu::util::DeviceExt;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 2],
-    // TODO: probably, the color should be passed to GPU separately and subset by ID.
-    //       using 4 x 32-bit per-Vertex is redundant.
-    color: [f32; 4],
+    color: u32,
 }
 
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Uint32];
 
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {

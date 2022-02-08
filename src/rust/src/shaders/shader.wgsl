@@ -1,6 +1,6 @@
 struct VertexInput {
     @location(0) pos:   vec2<f32>;
-    @location(1) color: vec4<f32>;
+    @location(1) color: u32;
 };
 
 struct VertexOutput {
@@ -21,9 +21,15 @@ fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    
-    // Use the input color as is.
-    out.color  = model.color;
+
+    // R's color representation is in the order of Alpha, Blue, Green, and Red. So,
+    // we need to flip the order. Besides, it seems SVG spec doesn't accept
+    // "#RRGGBBAA" format. unpack4x8unorm() is the function for this.
+    //
+    // https://github.com/wch/r-source/blob/8ebcb33a9f70e729109b1adf60edd5a3b22d3c6f/src/include/R_ext/GraphicsDevice.h#L766-L796 
+    // https://www.w3.org/TR/WGSL/#unpack-builtin-functions
+    let c: vec4<f32> = unpack4x8unorm(model.color);
+    out.color  = vec4<f32>(c.r, c.g, c.b, c.a);
 
     // Scale the positions to [-1, 1]
     out.coords = vec4<f32>(2.0 * model.pos / globals.resolution - 1.0, 0.0, 1.0);

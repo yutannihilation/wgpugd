@@ -9,7 +9,15 @@ use lyon::tessellation::{FillOptions, FillTessellator, FillVertex};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator, StrokeVertex};
 
 struct VertexCtor {
-    color: [f32; 4],
+    color: u32,
+}
+
+impl VertexCtor {
+    fn new(color: i32) -> Self {
+        Self {
+            color: unsafe { std::mem::transmute(color) },
+        }
+    }
 }
 
 impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
@@ -36,7 +44,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::Device;
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        let color = crate::util::i32_to_rgba(gc.col);
+        let color = gc.col;
         let line_width = gc.lwd as f32;
         // TODO: determine tolerance nicely
         let tolerance = 0.01;
@@ -61,7 +69,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let mut stroke_tess = StrokeTessellator::new();
         let stroke_options = &StrokeOptions::tolerance(tolerance).with_line_width(line_width);
 
-        let ctxt = VertexCtor { color };
+        let ctxt = VertexCtor::new(color);
 
         stroke_tess
             .tessellate_path(
@@ -78,8 +86,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        let color = crate::util::i32_to_rgba(gc.col);
-        let fill = crate::util::i32_to_rgba(gc.fill);
+        let color = gc.col;
+        let fill = gc.fill;
         let line_width = gc.lwd as f32;
 
         // TODO: determine tolerance nicely
@@ -111,7 +119,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let mut stroke_tess = StrokeTessellator::new();
         let stroke_options = &StrokeOptions::tolerance(tolerance).with_line_width(line_width);
 
-        let ctxt = VertexCtor { color };
+        let ctxt = VertexCtor::new(color);
 
         stroke_tess
             .tessellate_path(
@@ -142,7 +150,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        let color = crate::util::i32_to_rgba(gc.col);
+        let color = gc.col;
         let line_width = gc.lwd as f32;
         // TODO: determine tolerance nicely
         let tolerance = 0.01;
@@ -154,7 +162,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let mut stroke_tess = StrokeTessellator::new();
         let stroke_options = &StrokeOptions::tolerance(tolerance).with_line_width(line_width);
 
-        let ctxt = VertexCtor { color };
+        let ctxt = VertexCtor::new(color);
 
         stroke_tess
             .tessellate_circle(
