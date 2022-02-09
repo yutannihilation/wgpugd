@@ -42,6 +42,10 @@ impl FillVertexConstructor<crate::Vertex> for VertexCtor {
 
 impl crate::WgpuGraphicsDevice {
     fn tesselate_path_stroke(&mut self, path: &Path, stroke_options: &StrokeOptions, color: i32) {
+        if color.is_na() {
+            return;
+        }
+
         let mut stroke_tess = StrokeTessellator::new();
 
         let ctxt = VertexCtor::new(color);
@@ -56,6 +60,10 @@ impl crate::WgpuGraphicsDevice {
     }
 
     fn tesselate_path_fill(&mut self, path: &Path, fill_options: &FillOptions, color: i32) {
+        if color.is_na() {
+            return;
+        }
+
         let mut fill_tess = FillTessellator::new();
 
         let ctxt = VertexCtor::new(color);
@@ -76,6 +84,10 @@ impl crate::WgpuGraphicsDevice {
         stroke_options: &StrokeOptions,
         color: i32,
     ) {
+        if color.is_na() {
+            return;
+        }
+
         let mut stroke_tess = StrokeTessellator::new();
 
         let ctxt = VertexCtor::new(color);
@@ -97,6 +109,10 @@ impl crate::WgpuGraphicsDevice {
         fill_options: &FillOptions,
         color: i32,
     ) {
+        if color.is_na() {
+            return;
+        }
+
         let mut fill_tess = FillTessellator::new();
 
         let ctxt = VertexCtor::new(color);
