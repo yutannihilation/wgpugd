@@ -45,10 +45,9 @@ development! :warning:
 library(wgpugd)
 
 wgpugd(10, 10)
-bg <- scales::alpha(viridisLite::viridis(20, option = "H"), 0.9)
-col <- scales::alpha("red", 0.4)
+col <- scales::alpha(viridisLite::viridis(20, option = "H"), 0.65)
 set.seed(16)
-plot(runif(30), col = col, bg = bg, cex = 30, lwd = 50, pch = 21)
+plot(runif(30), col = col, bg = NA, cex = 30, lwd = 50, pch = 21)
 dev.off()
 #> png 
 #>   2

@@ -3,7 +3,7 @@ use extendr_api::{
     prelude::*,
 };
 
-use lyon::path::{traits::PathBuilder, Path};
+use lyon::path::Path;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator, FillVertex};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator, StrokeVertex};

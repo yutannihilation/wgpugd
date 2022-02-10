@@ -41,6 +41,8 @@ struct Globals {
 struct WgpuGraphicsDevice {
     device: wgpu::Device,
     queue: wgpu::Queue,
+
+    // For writing out a PNG
     texture: wgpu::Texture,
     texture_extent: wgpu::Extent3d,
     output_buffer: wgpu::Buffer,
@@ -52,10 +54,15 @@ struct WgpuGraphicsDevice {
 
     geometry: VertexBuffers<Vertex, u32>,
 
+    // For MSAA
+    multisampled_framebuffer: wgpu::TextureView,
+
     // width and height in point
     width: u32,
     height: u32,
 
+    // The unpadded and padded lengths are both needed because we prepare a
+    // buffer in the padded size but do not read the padded part.
     unpadded_bytes_per_row: u32,
     padded_bytes_per_row: u32,
 }
@@ -159,6 +166,18 @@ impl WgpuGraphicsDevice {
             }],
         });
 
+        let multisampled_framebuffer = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("wgpugd multisampled framebuffer"),
+                size: texture_extent,
+                mip_level_count: 1,
+                sample_count: 4,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            })
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("wgpugd render pipeline layout"),
@@ -185,11 +204,9 @@ impl WgpuGraphicsDevice {
                 conservative: false,
             },
             depth_stencil: None,
-            // TOOO: Use MSAA
             multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
+                count: 4,
+                ..Default::default()
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -218,6 +235,8 @@ impl WgpuGraphicsDevice {
             render_pipeline,
 
             geometry,
+
+            multisampled_framebuffer,
 
             width,
             height,
@@ -260,12 +279,15 @@ impl WgpuGraphicsDevice {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("wgpugd render pass"),
                 color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &texture_view,
-                    resolve_target: None,
+                    view: &self.multisampled_framebuffer,
+                    resolve_target: Some(&texture_view),
                     ops: wgpu::Operations {
                         // TODO: set the proper error from the value of gp->bg
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                        store: true,
+                        // As described in the wgpu's example of MSAA, if the
+                        // pre-resolved MSAA data is not used anywhere else, we
+                        // should set this to false to save memory.
+                        store: false,
                     },
                 }],
                 // Since wgpugd is a 2D graphics device, we don't need the depth
