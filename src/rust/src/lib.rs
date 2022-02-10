@@ -35,7 +35,11 @@ impl Vertex {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Globals {
     resolution: [f32; 2],
+    // layer_clippings: [[[f32; 2]; 2]; MAX_LAYERS],
 }
+
+// This should match with shaders.wgsl
+const MAX_LAYERS: usize = 8;
 
 #[allow(dead_code)]
 struct WgpuGraphicsDevice {
@@ -56,6 +60,8 @@ struct WgpuGraphicsDevice {
 
     // For MSAA
     multisampled_framebuffer: wgpu::TextureView,
+
+    // clippings: [[[f32; 2]; 2]; MAX_LAYERS],
 
     // width and height in point
     width: u32,
@@ -134,12 +140,11 @@ impl WgpuGraphicsDevice {
             mapped_at_creation: false,
         });
 
-        let globals_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let globals_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("wgpugd uniform buffer for globals"),
-            contents: bytemuck::cast_slice(&[Globals {
-                resolution: [width as _, height as _],
-            }]),
-            usage: wgpu::BufferUsages::UNIFORM,
+            size: std::mem::size_of::<Globals>() as _,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         });
 
         let globals_bind_group_layout =
@@ -262,6 +267,14 @@ impl WgpuGraphicsDevice {
                 contents: bytemuck::cast_slice(self.geometry.indices.as_slice()),
                 usage: wgpu::BufferUsages::INDEX,
             });
+
+        self.queue.write_buffer(
+            &self.globals_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[Globals {
+                resolution: [self.width as _, self.height as _],
+            }]),
+        );
 
         let num_indices = self.geometry.indices.len() as u32;
 
