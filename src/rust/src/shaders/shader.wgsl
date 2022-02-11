@@ -44,10 +44,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Note to self: at the fragment stage, `position` represents the 2D pixel
     // position in framebuffer space, which is NOT [-1, 1].
-    var bottom_left: vec2<f32> = globals.layer_clippings[in.layer][0];
-    var top_right:   vec2<f32> = globals.layer_clippings[in.layer][1];
+    var bottom_left: vec2<f32> = vec2<f32>(
+        globals.layer_clippings[in.layer][0].x,
+        // Y-axis is from top to bottom, so the coordinates needs to be flipped.
+        // TODO: probably I can write this more nicely with vector products
+        globals.resolution.y - globals.layer_clippings[in.layer][1].y,
+    );
+    var top_right:   vec2<f32> = vec2<f32>(
+        globals.layer_clippings[in.layer][1].x,
+        globals.resolution.y - globals.layer_clippings[in.layer][0].y,
+    );
 
-    // TOOD: Can I do this more nicely with vector products?
+    // TOOD: Can I do this more nicely with vector products? (c.f. https://math.stackexchange.com/a/190373)
     if (all((bottom_left <= in.coords.xy) & (in.coords.xy <= top_right))) {
         // R's color representation is in the order of RGBA, which can be simply
         // unpacked by unpack4x8unorm().
