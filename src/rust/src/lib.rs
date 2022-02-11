@@ -32,6 +32,9 @@ impl Vertex {
     }
 }
 
+// This should match with shaders.wgsl
+const MAX_LAYERS: usize = 8;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Globals {
@@ -39,8 +42,35 @@ struct Globals {
     layer_clippings: [[[f32; 2]; 2]; MAX_LAYERS],
 }
 
-// This should match with shaders.wgsl
-const MAX_LAYERS: usize = 8;
+struct LayerClippings {
+    clippings: Vec<[[f32; 2]; 2]>,
+}
+
+impl LayerClippings {
+    const NO_CLIPPING: [[f32; 2]; 2] = [[f32::MIN, f32::MIN], [f32::MAX, f32::MAX]];
+
+    fn new() -> Self {
+        Self { clippings: vec![] }
+    }
+
+    fn add_clipping(&mut self, from: (f64, f64), to: (f64, f64)) -> usize {
+        self.clippings
+            .push([[from.0 as _, from.1 as _], [to.0 as _, to.1 as _]]);
+
+        self.clippings.len()
+    }
+
+    fn to_array(&self) -> [[[f32; 2]; 2]; MAX_LAYERS] {
+        let mut clippings = [Self::NO_CLIPPING; MAX_LAYERS];
+
+        for (i, c) in self.clippings.iter().take(MAX_LAYERS).enumerate() {
+            // layer 0 is reserved for no clipping
+            clippings[i + 1] = *c;
+        }
+
+        clippings
+    }
+}
 
 #[allow(dead_code)]
 struct WgpuGraphicsDevice {
@@ -62,7 +92,7 @@ struct WgpuGraphicsDevice {
     // For MSAA
     multisampled_framebuffer: wgpu::TextureView,
 
-    layer_clippings: [[[f32; 2]; 2]; MAX_LAYERS],
+    layer_clippings: LayerClippings,
     current_layer: usize,
 
     // width and height in point
@@ -244,7 +274,7 @@ impl WgpuGraphicsDevice {
 
             multisampled_framebuffer,
 
-            layer_clippings: [[[f32::MIN, f32::MAX]; 2]; MAX_LAYERS],
+            layer_clippings: LayerClippings::new(),
             current_layer: 0,
 
             width,
@@ -277,7 +307,7 @@ impl WgpuGraphicsDevice {
             0,
             bytemuck::cast_slice(&[Globals {
                 resolution: [self.width as _, self.height as _],
-                layer_clippings: self.layer_clippings,
+                layer_clippings: self.layer_clippings.to_array(),
             }]),
         );
 

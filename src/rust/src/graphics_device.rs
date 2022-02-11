@@ -242,10 +242,18 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
-        println!("{from:?}, {to:?}");
-        self.current_layer += 1;
-        self.layer_clippings[self.current_layer] =
-            [[from.0 as _, from.1 as _], [to.0 as _, to.1 as _]];
+        // If the clipping contains the whole layer, skip it
+        if from.0 <= 0. && from.1 <= 0. && to.0 >= self.width as _ && to.1 >= self.height as _ {
+            self.current_layer = 0;
+        } else {
+            let layer_id = self.layer_clippings.add_clipping(from, to);
+
+            if layer_id < crate::MAX_LAYERS {
+                self.current_layer = layer_id;
+            } else {
+                reprintln!("[WARN] too many clippings! {from:?}, {to:?} is ignored");
+            }
+        }
     }
 
     fn close(&mut self, _: DevDesc) {
