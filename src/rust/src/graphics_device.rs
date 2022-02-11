@@ -130,6 +130,52 @@ impl crate::WgpuGraphicsDevice {
             )
             .unwrap();
     }
+
+    fn tesselate_rect_stroke(
+        &mut self,
+        rect: &lyon::math::Rect,
+        stroke_options: &StrokeOptions,
+        color: i32,
+    ) {
+        if color.is_na() {
+            return;
+        }
+
+        let mut stroke_tess = StrokeTessellator::new();
+
+        let ctxt = VertexCtor::new(color, self.current_layer as _);
+
+        stroke_tess
+            .tessellate_rectangle(
+                rect,
+                stroke_options,
+                &mut BuffersBuilder::new(&mut self.geometry, ctxt),
+            )
+            .unwrap();
+    }
+
+    fn tesselate_rect_fill(
+        &mut self,
+        rect: &lyon::math::Rect,
+        fill_options: &FillOptions,
+        color: i32,
+    ) {
+        if color.is_na() {
+            return;
+        }
+
+        let mut fill_tess = FillTessellator::new();
+
+        let ctxt = VertexCtor::new(color, self.current_layer as _);
+
+        fill_tess
+            .tessellate_rectangle(
+                rect,
+                fill_options,
+                &mut BuffersBuilder::new(&mut self.geometry, ctxt),
+            )
+            .unwrap();
+    }
 }
 
 impl DeviceDriver for crate::WgpuGraphicsDevice {
@@ -239,6 +285,34 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_options,
             color,
         );
+    }
+
+    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, dd: DevDesc) {
+        let color = gc.col;
+        let fill = gc.fill;
+        let line_width = gc.lwd as f32;
+        // TODO: determine tolerance nicely
+        let tolerance = 0.01;
+
+        let x = from.0.min(to.0) as f32;
+        let y = from.1.min(to.1) as f32;
+        let w = (to.0 - from.0).abs() as f32;
+        let h = (to.1 - from.1).abs() as f32;
+
+        //
+        // **** Tessellate fill ***************************
+        //
+
+        let fill_options = &FillOptions::tolerance(tolerance);
+        self.tesselate_rect_fill(&lyon::math::rect(x, y, w, h), fill_options, fill);
+
+        //
+        // **** Tessellate stroke ***************************
+        //
+
+        let stroke_options = &StrokeOptions::tolerance(tolerance).with_line_width(line_width);
+
+        self.tesselate_rect_stroke(&lyon::math::rect(x, y, w, h), stroke_options, color);
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
