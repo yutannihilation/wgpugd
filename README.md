@@ -45,9 +45,15 @@ development! :warning:
 library(wgpugd)
 
 wgpugd(10, 10)
-col <- scales::alpha(viridisLite::viridis(20, option = "H"), 0.65)
-set.seed(16)
-plot(runif(30), col = col, bg = NA, cex = 30, lwd = 50, pch = 21)
+
+library(ggplot2)
+#> Warning in register(): Can't find generic `scale_type` in package ggplot2 to
+#> register S3 method.
+set.seed(10)
+dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
+ggplot(dsamp, aes(carat, price)) +
+  geom_point(aes(colour = clarity))
+
 dev.off()
 #> png 
 #>   2
