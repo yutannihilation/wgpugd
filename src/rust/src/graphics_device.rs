@@ -10,12 +10,14 @@ use lyon::tessellation::{StrokeOptions, StrokeTessellator, StrokeVertex};
 
 struct VertexCtor {
     color: u32,
+    layer: u32,
 }
 
 impl VertexCtor {
-    fn new(color: i32) -> Self {
+    fn new(color: i32, layer: u32) -> Self {
         Self {
             color: unsafe { std::mem::transmute(color) },
+            layer,
         }
     }
 }
@@ -26,6 +28,7 @@ impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
         crate::Vertex {
             position: pos.into(),
             color: self.color,
+            layer: self.layer,
         }
     }
 }
@@ -36,6 +39,7 @@ impl FillVertexConstructor<crate::Vertex> for VertexCtor {
         crate::Vertex {
             position: pos.into(),
             color: self.color,
+            layer: self.layer,
         }
     }
 }
@@ -48,7 +52,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color);
+        let ctxt = VertexCtor::new(color, self.current_layer as _);
 
         stroke_tess
             .tessellate_path(
@@ -66,7 +70,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color);
+        let ctxt = VertexCtor::new(color, self.current_layer as _);
 
         fill_tess
             .tessellate_path(
@@ -90,7 +94,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color);
+        let ctxt = VertexCtor::new(color, self.current_layer as _);
 
         stroke_tess
             .tessellate_circle(
@@ -115,7 +119,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color);
+        let ctxt = VertexCtor::new(color, self.current_layer as _);
 
         fill_tess
             .tessellate_circle(
@@ -235,6 +239,13 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_options,
             color,
         );
+    }
+
+    fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
+        println!("{from:?}, {to:?}");
+        self.current_layer += 1;
+        self.layer_clippings[self.current_layer] =
+            [[from.0 as _, from.1 as _], [to.0 as _, to.1 as _]];
     }
 
     fn close(&mut self, _: DevDesc) {

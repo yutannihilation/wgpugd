@@ -16,11 +16,12 @@ use wgpu::util::DeviceExt;
 struct Vertex {
     position: [f32; 2],
     color: u32,
+    layer: u32,
 }
 
 impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Uint32];
+    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Uint32, 2 => Uint32];
 
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
@@ -35,7 +36,7 @@ impl Vertex {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Globals {
     resolution: [f32; 2],
-    // layer_clippings: [[[f32; 2]; 2]; MAX_LAYERS],
+    layer_clippings: [[[f32; 2]; 2]; MAX_LAYERS],
 }
 
 // This should match with shaders.wgsl
@@ -61,7 +62,8 @@ struct WgpuGraphicsDevice {
     // For MSAA
     multisampled_framebuffer: wgpu::TextureView,
 
-    // clippings: [[[f32; 2]; 2]; MAX_LAYERS],
+    layer_clippings: [[[f32; 2]; 2]; MAX_LAYERS],
+    current_layer: usize,
 
     // width and height in point
     width: u32,
@@ -108,7 +110,6 @@ impl WgpuGraphicsDevice {
             label: Some("wgpugd texture descriptor"),
             size: texture_extent,
             mip_level_count: 1,
-            // TODO: change this to 4 when enabling MSAA
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             // R don't use sRGB, so don't choose Rgba8UnormSrgb here!
@@ -152,7 +153,7 @@ impl WgpuGraphicsDevice {
                 label: Some("wgpugd globals bind group layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -243,6 +244,9 @@ impl WgpuGraphicsDevice {
 
             multisampled_framebuffer,
 
+            layer_clippings: [[[f32::MIN, f32::MAX]; 2]; MAX_LAYERS],
+            current_layer: 0,
+
             width,
             height,
 
@@ -273,6 +277,7 @@ impl WgpuGraphicsDevice {
             0,
             bytemuck::cast_slice(&[Globals {
                 resolution: [self.width as _, self.height as _],
+                layer_clippings: self.layer_clippings,
             }]),
         );
 
