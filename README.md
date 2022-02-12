@@ -15,12 +15,15 @@ capabilities of GPU hardware.
 
 ### What is wgpu?
 
-There are two major libraries that implement the WebGPU standard; one is
-[Dawn](https://dawn.googlesource.com/dawn) (used in Chrome), and the
-other one is [wgpu](https://wgpu.rs/), a pure-Rust implementation.
+As the name indicates, the wgpugd package uses [wgpu](https://wgpu.rs/),
+a pure-Rust implementation of the WebGPU standard. wgpu is what’s behind
+the WebGPU support of Firefox and Deno, and is widely used over the
+Rust’s graphics ecosystem.
 
-wgpu is what’s behind the WebGPU support of Firefox and Deno, and is
-used in many places in the Rust’s graphics ecosystem.
+### Wait, Rust…? Can we use Rust in R??
+
+Yes! [extendr](https://extendr.github.io/) is the Rust framework for
+interacting with R.
 
 ### Why WebGPU for R?
 
