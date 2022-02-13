@@ -61,7 +61,9 @@ wgpugd(file, 10, 10)
 set.seed(10)
 dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 ggplot(dsamp, aes(carat, price)) +
-  geom_point(aes(colour = clarity))
+  geom_point(aes(colour = clarity)) +
+  labs(title = "Now I can", y = "render", x ="texts!!!") +
+  theme(text = element_text(size = 40), legend.position = "none")
 
 dev.off()
 

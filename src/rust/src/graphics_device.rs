@@ -1,7 +1,7 @@
 use std::os::raw::c_char;
 
 use extendr_api::{
-    graphics::{ClippingStrategy, DevDesc, DeviceDriver, R_GE_gcontext},
+    graphics::{ClippingStrategy, DevDesc, DeviceDriver, R_GE_gcontext, TextMetric},
     prelude::*,
 };
 
@@ -324,6 +324,17 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         self.tesselate_rect_stroke(&lyon::math::rect(x, y, w, h), stroke_options, color);
     }
 
+    // Wildly assumes 1 font has 1pt of width, and 10% of horizontal margins on
+    // top and bottom. This should be properly done by querying to a font
+    // database (e.g. https://github.com/RazrFalcon/fontdb).
+    fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
+        TextMetric {
+            ascent: 1.1 * gc.ps,
+            descent: 0.1 * gc.ps,
+            width: gc.ps,
+        }
+    }
+
     fn text(
         &mut self,
         pos: (f64, f64),
@@ -333,14 +344,16 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        eprintln!("[DEBUG] pos: {pos:?}");
-
         let fill = gc.col;
+
         // TODO: determine tolerance nicely
         let tolerance = 0.01;
 
+        let fontsize = (gc.cex * gc.ps) as f32;
         let fontfamily =
             unsafe { std::ffi::CStr::from_ptr(&gc.fontfamily as *const c_char) }.to_string_lossy();
+
+        reprintln!("[DEBUG] fontsize: {fontsize}");
 
         // TODO: Can I do this more nicely?
         let (weight, style) = match gc.fontface {
@@ -360,7 +373,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         };
 
         let query = fontdb::Query {
-            families: &[fontdb::Family::Name(&fontfamily), fontdb::Family::Serif],
+            families: &[fontdb::Family::Name(&fontfamily), fontdb::Family::SansSerif],
             weight,
             stretch: fontdb::Stretch::Normal,
             style,
@@ -383,7 +396,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             let line_height = height + font.line_gap() as f32;
 
             // TODO: what size is the correct size?
-            let scale_factor = 12. / height;
+            let scale_factor = fontsize / height;
 
             let mut builder =
                 crate::text::LyonOutlineBuilder::new(scale_factor, pos.0 as _, pos.1 as _);

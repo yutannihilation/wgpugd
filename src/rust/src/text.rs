@@ -36,6 +36,7 @@ impl LyonOutlineBuilder {
         lyon::math::point(
             x * self.scale_factor + self.offset_x,
             y * self.scale_factor + self.offset_y,
+            // y * self.scale_factor + self.offset_y,
         )
     }
 
