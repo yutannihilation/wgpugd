@@ -6,9 +6,6 @@ pub static FONTDB: Lazy<fontdb::Database> = Lazy::new(|| {
     db
 });
 
-use extendr_api::prelude::*;
-use ttf_parser::{kern::Subtables, GlyphId};
-
 pub(crate) struct LyonOutlineBuilder {
     pub(crate) builder: lyon::path::path::Builder,
     // multiply by this to scale the position into the range of [0, 1].

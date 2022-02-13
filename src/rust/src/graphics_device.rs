@@ -189,6 +189,10 @@ impl crate::WgpuGraphicsDevice {
         color: i32,
         fill: i32,
         line_width: f32,
+        line_cap: lyon::tessellation::LineCap,
+        line_join: lyon::tessellation::LineJoin,
+        mitre_limit: f32,
+        close: bool,
     ) {
         // TODO: determine tolerance nicely
         let tolerance = 0.01;
@@ -208,7 +212,7 @@ impl crate::WgpuGraphicsDevice {
         coords.for_each(|(x, y)| {
             builder.line_to(lyon::math::point(x as _, y as _));
         });
-        builder.close();
+        builder.end(close);
 
         let path = builder.build();
 
@@ -223,9 +227,42 @@ impl crate::WgpuGraphicsDevice {
         // **** Tessellate stroke ***************************
         //
 
-        let stroke_options = &StrokeOptions::tolerance(tolerance).with_line_width(line_width);
+        let stroke_options = &StrokeOptions::tolerance(tolerance)
+            .with_line_width(line_width)
+            .with_line_cap(line_cap)
+            .with_line_join(line_join)
+            .with_miter_limit(mitre_limit);
         self.tesselate_path_stroke(&path, stroke_options, color);
     }
+}
+
+// TODO: avoid magic numbers
+fn translate_line_cap(lend: u32) -> lyon::tessellation::LineCap {
+    match lend {
+        1 => lyon::tessellation::LineCap::Round,
+        2 => lyon::tessellation::LineCap::Butt,
+        3 => lyon::tessellation::LineCap::Square,
+        _ => lyon::tessellation::LineCap::Round,
+    }
+}
+
+// TODO: avoid magic numbers
+fn translate_line_join(ljoin: u32) -> lyon::tessellation::LineJoin {
+    match ljoin {
+        1 => lyon::tessellation::LineJoin::Round,
+        2 => lyon::tessellation::LineJoin::Miter,
+        3 => lyon::tessellation::LineJoin::Bevel,
+        _ => lyon::tessellation::LineJoin::Round,
+    }
+}
+
+// R Internals says:
+//
+// > lwd = 1 should correspond to a line width of 1/96 inch
+//
+// and 1 inch is 72 points.
+fn translate_line_width(lwd: f64) -> f32 {
+    lwd as f32 * 72. / 96.
 }
 
 impl DeviceDriver for crate::WgpuGraphicsDevice {
@@ -233,9 +270,21 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         let color = gc.col;
-        let line_width = gc.lwd as f32;
+        let line_width = translate_line_width(gc.lwd);
+        let line_cap = translate_line_cap(gc.lend);
+        let line_join = translate_line_join(gc.ljoin);
+        let mitre_limit = gc.lmitre as f32;
 
-        self.polygon_inner([from, to], color, i32::na(), line_width);
+        self.polygon_inner(
+            [from, to],
+            color,
+            i32::na(),
+            line_width,
+            line_cap,
+            line_join,
+            mitre_limit,
+            false,
+        );
     }
 
     fn polyline<T: IntoIterator<Item = (f64, f64)>>(
@@ -245,9 +294,21 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         _: DevDesc,
     ) {
         let color = gc.col;
-        let line_width = gc.lwd as f32;
+        let line_width = translate_line_width(gc.lwd);
+        let line_cap = translate_line_cap(gc.lend);
+        let line_join = translate_line_join(gc.ljoin);
+        let mitre_limit = gc.lmitre as f32;
 
-        self.polygon_inner(coords, color, i32::na(), line_width);
+        self.polygon_inner(
+            coords,
+            color,
+            i32::na(),
+            line_width,
+            line_cap,
+            line_join,
+            mitre_limit,
+            false,
+        );
     }
 
     fn polygon<T: IntoIterator<Item = (f64, f64)>>(
@@ -258,15 +319,31 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     ) {
         let color = gc.col;
         let fill = gc.fill;
-        let line_width = gc.lwd as f32;
+        let line_width = translate_line_width(gc.lwd);
+        let line_cap = translate_line_cap(gc.lend);
+        let line_join = translate_line_join(gc.ljoin);
+        let mitre_limit = gc.lmitre as f32;
 
-        self.polygon_inner(coords, color, fill, line_width);
+        self.polygon_inner(
+            coords,
+            color,
+            fill,
+            line_width,
+            line_cap,
+            line_join,
+            mitre_limit,
+            false,
+        );
     }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
         let color = gc.col;
         let fill = gc.fill;
-        let line_width = gc.lwd as f32;
+        let line_width = translate_line_width(gc.lwd);
+        let line_cap = translate_line_cap(gc.lend);
+        let line_join = translate_line_join(gc.ljoin);
+        let mitre_limit = gc.lmitre as f32;
+
         // TODO: determine tolerance nicely
         let tolerance = 0.01;
 
@@ -286,7 +363,11 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         // **** Tessellate stroke ***************************
         //
 
-        let stroke_options = &StrokeOptions::tolerance(tolerance).with_line_width(line_width);
+        let stroke_options = &StrokeOptions::tolerance(tolerance)
+            .with_line_width(line_width)
+            .with_line_cap(line_cap)
+            .with_line_join(line_join)
+            .with_miter_limit(mitre_limit);
 
         self.tesselate_circle_stroke(
             lyon::math::point(center.0 as _, center.1 as _),
@@ -299,7 +380,11 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         let color = gc.col;
         let fill = gc.fill;
-        let line_width = gc.lwd as f32;
+        let line_width = translate_line_width(gc.lwd);
+        let line_cap = translate_line_cap(gc.lend);
+        let line_join = translate_line_join(gc.ljoin);
+        let mitre_limit = gc.lmitre as f32;
+
         // TODO: determine tolerance nicely
         let tolerance = 0.01;
 
@@ -319,7 +404,11 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         // **** Tessellate stroke ***************************
         //
 
-        let stroke_options = &StrokeOptions::tolerance(tolerance).with_line_width(line_width);
+        let stroke_options = &StrokeOptions::tolerance(tolerance)
+            .with_line_width(line_width)
+            .with_line_cap(line_cap)
+            .with_line_join(line_join)
+            .with_miter_limit(mitre_limit);
 
         self.tesselate_rect_stroke(&lyon::math::rect(x, y, w, h), stroke_options, color);
     }
