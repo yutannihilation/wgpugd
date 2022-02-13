@@ -1,3 +1,7 @@
+// Since there's no direct equivalent to sprintf() in Rust (i.e., we cannot
+// simply pass the user-supplied string to format!()), we need to parse the
+// filename and construct the filename template.
+
 use once_cell::sync::Lazy;
 use std::path::{Path, PathBuf};
 
