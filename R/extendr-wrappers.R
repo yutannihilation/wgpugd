@@ -10,8 +10,9 @@ NULL
 
 #' A graphic device that does nothing
 #'
+#' @param filename
 #' @param width  Device width in inch.
 #' @param height Device width in inch.
 #' @export
-wgpugd <- function(width, height) invisible(.Call(wrap__wgpugd, width, height))
+wgpugd <- function(filename, width, height) invisible(.Call(wrap__wgpugd, filename, width, height))
 

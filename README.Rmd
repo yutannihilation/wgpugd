@@ -53,10 +53,11 @@ devtools::install_github("yutannihilation/wgpugd")
 
 ```{r}
 library(wgpugd)
-
-wgpugd(10, 10)
-
 library(ggplot2)
+
+file <- knitr::fig_path('.png')
+wgpugd(file, 10, 10)
+
 set.seed(10)
 dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 ggplot(dsamp, aes(carat, price)) +
@@ -64,7 +65,7 @@ ggplot(dsamp, aes(carat, price)) +
 
 dev.off()
 
-knitr::include_graphics("tmp_wgpugd.png")
+knitr::include_graphics(file)
 ```
 
 ## References

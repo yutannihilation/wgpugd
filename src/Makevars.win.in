@@ -2,7 +2,7 @@
 # available when configure.win is used. So, R_ARCH is chosen here.
 TARGET = $(subst /x64,x86_64,$(subst /i386,i686,$(R_ARCH)))-pc-windows-gnu
 
-TOOLCHAIN = stable-msvc
+TOOLCHAIN = stable-gnu
 
 LIBDIR = ./rust/target/$(TARGET)/release
 

@@ -46,12 +46,13 @@ development! :warning:
 
 ``` r
 library(wgpugd)
-
-wgpugd(10, 10)
-
 library(ggplot2)
 #> Warning in register(): Can't find generic `scale_type` in package ggplot2 to
 #> register S3 method.
+
+file <- knitr::fig_path('.png')
+wgpugd(file, 10, 10)
+
 set.seed(10)
 dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 ggplot(dsamp, aes(carat, price)) +
@@ -61,10 +62,10 @@ dev.off()
 #> png 
 #>   2
 
-knitr::include_graphics("tmp_wgpugd.png")
+knitr::include_graphics(file)
 ```
 
-<img src="tmp_wgpugd.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-2-1.png" width="100%" />
 
 ## References
 

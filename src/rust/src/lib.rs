@@ -1,7 +1,10 @@
+mod file;
 mod graphics_device;
 
-use std::fs::File;
+use crate::file::FilenameTemplate;
+
 use std::io::Write;
+use std::{fs::File, path::PathBuf};
 
 use extendr_api::{
     graphics::{DeviceDescriptor, DeviceDriver},
@@ -103,10 +106,17 @@ struct WgpuGraphicsDevice {
     // buffer in the padded size but do not read the padded part.
     unpadded_bytes_per_row: u32,
     padded_bytes_per_row: u32,
+
+    filename: FilenameTemplate,
+    cur_page: u32,
 }
 
 impl WgpuGraphicsDevice {
-    async fn new(width: u32, height: u32) -> Self {
+    fn filename(&self) -> PathBuf {
+        self.filename.filename(self.cur_page)
+    }
+
+    async fn new(filename: &str, width: u32, height: u32) -> Self {
         // Set envvar WGPU_BACKEND to specific backend (e.g., vulkan, dx12, metal, opengl)
         let backend = wgpu::util::backend_bits_from_env().unwrap_or_else(wgpu::Backends::all);
 
@@ -282,6 +292,9 @@ impl WgpuGraphicsDevice {
 
             unpadded_bytes_per_row: unpadded_bytes_per_row as _,
             padded_bytes_per_row: padded_bytes_per_row as _,
+
+            filename: FilenameTemplate::new(filename).unwrap(),
+            cur_page: 1, // The page number starts with 1
         }
     }
 
@@ -378,6 +391,14 @@ impl WgpuGraphicsDevice {
 
     // c.f. https://github.com/gfx-rs/wgpu/blob/312828f12f1a1497bc0387a72a5346ef911acad7/wgpu/examples/capture/main.rs#L119
     async fn write_png(&mut self) {
+        let file = match File::create(self.filename()) {
+            Ok(f) => f,
+            Err(e) => {
+                reprintln!("Failed to create the output file");
+                return;
+            }
+        };
+
         let buffer_slice = self.output_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
 
@@ -387,11 +408,7 @@ impl WgpuGraphicsDevice {
         if let Ok(()) = buffer_future.await {
             let padded_buffer = buffer_slice.get_mapped_range();
 
-            let mut png_encoder = png::Encoder::new(
-                File::create("tmp_wgpugd.png").unwrap(),
-                self.width,
-                self.height,
-            );
+            let mut png_encoder = png::Encoder::new(file, self.width, self.height);
 
             png_encoder.set_depth(png::BitDepth::Eight);
             png_encoder.set_color(png::ColorType::Rgba);
@@ -422,16 +439,21 @@ impl WgpuGraphicsDevice {
 
 /// A graphic device that does nothing
 ///
+/// @param filename
 /// @param width  Device width in inch.
 /// @param height Device width in inch.
 /// @export
 #[extendr]
-fn wgpugd(width: i32, height: i32) {
+fn wgpugd(filename: &str, width: i32, height: i32) {
     // Typically, 72 points per inch
     let width_pt = width * 72;
     let height_pt = height * 72;
 
-    let device_driver = pollster::block_on(WgpuGraphicsDevice::new(width_pt as _, height_pt as _));
+    let device_driver = pollster::block_on(WgpuGraphicsDevice::new(
+        &filename.to_string(),
+        width_pt as _,
+        height_pt as _,
+    ));
 
     let device_descriptor =
         DeviceDescriptor::new().device_size(0.0, width_pt as _, 0.0, height_pt as _);

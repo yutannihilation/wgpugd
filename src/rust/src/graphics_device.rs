@@ -177,6 +177,7 @@ impl crate::WgpuGraphicsDevice {
             .unwrap();
     }
 
+    // This handles polygon(), polyline(), and line().
     fn polygon_inner<T: IntoIterator<Item = (f64, f64)>>(
         &mut self,
         coords: T,
