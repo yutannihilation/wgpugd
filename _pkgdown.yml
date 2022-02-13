@@ -6,4 +6,4 @@ articles:
 - title: Comparison with other graphics device
   navbar: ~
   contents:
-  - compare
+  - articles/compare
