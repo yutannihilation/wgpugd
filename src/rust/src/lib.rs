@@ -1,5 +1,6 @@
 mod file;
 mod graphics_device;
+mod text;
 
 use crate::file::FilenameTemplate;
 

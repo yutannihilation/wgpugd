@@ -1,3 +1,5 @@
+use std::os::raw::c_char;
+
 use extendr_api::{
     graphics::{ClippingStrategy, DevDesc, DeviceDriver, R_GE_gcontext},
     prelude::*,
@@ -7,6 +9,9 @@ use lyon::path::Path;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator, FillVertex};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator, StrokeVertex};
+use ttf_parser::GlyphId;
+
+use crate::text::FONTDB;
 
 struct VertexCtor {
     color: u32,
@@ -317,6 +322,111 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let stroke_options = &StrokeOptions::tolerance(tolerance).with_line_width(line_width);
 
         self.tesselate_rect_stroke(&lyon::math::rect(x, y, w, h), stroke_options, color);
+    }
+
+    fn text(
+        &mut self,
+        pos: (f64, f64),
+        text: &str,
+        angle: f64,
+        hadj: f64,
+        gc: R_GE_gcontext,
+        _: DevDesc,
+    ) {
+        eprintln!("[DEBUG] pos: {pos:?}");
+
+        let fill = gc.col;
+        // TODO: determine tolerance nicely
+        let tolerance = 0.01;
+
+        let fontfamily =
+            unsafe { std::ffi::CStr::from_ptr(&gc.fontfamily as *const c_char) }.to_string_lossy();
+
+        // TODO: Can I do this more nicely?
+        let (weight, style) = match gc.fontface {
+            // Plain
+            1 => (fontdb::Weight::NORMAL, fontdb::Style::Normal),
+            // Bold
+            2 => (fontdb::Weight::BOLD, fontdb::Style::Normal),
+            // Italic
+            3 => (fontdb::Weight::NORMAL, fontdb::Style::Italic),
+            // BoldItalic
+            4 => (fontdb::Weight::BOLD, fontdb::Style::Italic),
+            // Symbolic or unknown
+            _ => {
+                eprintln!("[WARN] Unsupported fontface");
+                (fontdb::Weight::NORMAL, fontdb::Style::Normal)
+            }
+        };
+
+        let query = fontdb::Query {
+            families: &[fontdb::Family::Name(&fontfamily), fontdb::Family::Serif],
+            weight,
+            stretch: fontdb::Stretch::Normal,
+            style,
+        };
+
+        let id = crate::text::FONTDB.query(&query);
+
+        // TODO: fallback to a different font
+        if id.is_none() {
+            eprintln!("[WARN] font not found: {fontfamily}");
+            return;
+        }
+
+        FONTDB.with_face_data(id.unwrap(), |font_data, face_index| {
+            let font = ttf_parser::Face::from_slice(font_data, face_index).unwrap();
+
+            let facetables = font.tables();
+
+            let height = font.height() as f32;
+            let line_height = height + font.line_gap() as f32;
+
+            // TODO: what size is the correct size?
+            let scale_factor = 12. / height;
+
+            let mut builder =
+                crate::text::LyonOutlineBuilder::new(scale_factor, pos.0 as _, pos.1 as _);
+
+            let mut prev_glyph: Option<GlyphId> = None;
+            for c in text.chars() {
+                // Skip control characters
+                if c.is_control() {
+                    // If the character is a line break, move to the next line
+                    if c == '\n' {
+                        builder.add_offset_y(-line_height);
+                        builder.set_offset_x(pos.0 as _);
+                    }
+                    prev_glyph = None;
+                    continue;
+                }
+                // Even when we cannot find glyph_id, fill it with 0.
+                let cur_glyph = font.glyph_index(c).unwrap_or(GlyphId(0));
+
+                if let Some(prev_glyph) = prev_glyph {
+                    builder.add_offset_x(crate::text::find_kerning(
+                        facetables, prev_glyph, cur_glyph,
+                    ) as _);
+                }
+
+                font.outline_glyph(cur_glyph, &mut builder);
+
+                if let Some(ha) = font.glyph_hor_advance(cur_glyph) {
+                    builder.add_offset_x(ha as _);
+                }
+
+                prev_glyph = Some(cur_glyph);
+            }
+
+            let path = builder.build();
+
+            //
+            // **** Tessellate fill ***************************
+            //
+
+            let fill_options = &FillOptions::tolerance(tolerance);
+            self.tesselate_path_fill(&path, fill_options, fill);
+        });
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
