@@ -294,7 +294,9 @@ impl WgpuGraphicsDevice {
             padded_bytes_per_row: padded_bytes_per_row as _,
 
             filename: FilenameTemplate::new(filename).unwrap(),
-            cur_page: 1, // The page number starts with 1
+            // The page number starts with 0, but newPage() will be immediately
+            // called and this gets incremented to 1.
+            cur_page: 0,
         }
     }
 
@@ -394,7 +396,7 @@ impl WgpuGraphicsDevice {
         let file = match File::create(self.filename()) {
             Ok(f) => f,
             Err(e) => {
-                reprintln!("Failed to create the output file");
+                reprintln!("Failed to create the output file: {e:?}");
                 return;
             }
         };
@@ -437,20 +439,24 @@ impl WgpuGraphicsDevice {
     }
 }
 
-/// A graphic device that does nothing
+/// A WebGPU Graphics Device for R
 ///
 /// @param filename
 /// @param width  Device width in inch.
 /// @param height Device width in inch.
 /// @export
 #[extendr]
-fn wgpugd(filename: &str, width: i32, height: i32) {
+fn wgpugd(
+    #[default = "'Rplot%03d.png'"] filename: &str,
+    #[default = "7"] width: i32,
+    #[default = "7"] height: i32,
+) {
     // Typically, 72 points per inch
     let width_pt = width * 72;
     let height_pt = height * 72;
 
     let device_driver = pollster::block_on(WgpuGraphicsDevice::new(
-        &filename.to_string(),
+        filename,
         width_pt as _,
         height_pt as _,
     ));

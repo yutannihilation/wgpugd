@@ -334,6 +334,17 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         }
     }
 
+    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+        // newPage() is called soon after the device is open, but there's
+        // nothing to render. So, skip rendering at first.
+        if self.cur_page != 0 {
+            self.render().unwrap();
+            pollster::block_on(self.write_png());
+        }
+
+        self.cur_page += 1;
+    }
+
     fn close(&mut self, _: DevDesc) {
         self.render().unwrap();
         pollster::block_on(self.write_png());

@@ -8,11 +8,11 @@
 #' @useDynLib wgpugd, .registration = TRUE
 NULL
 
-#' A graphic device that does nothing
+#' A WebGPU Graphics Device for R
 #'
 #' @param filename
 #' @param width  Device width in inch.
 #' @param height Device width in inch.
 #' @export
-wgpugd <- function(filename, width, height) invisible(.Call(wrap__wgpugd, filename, width, height))
+wgpugd <- function(filename = 'Rplot%03d.png', width = 7, height = 7) invisible(.Call(wrap__wgpugd, filename, width, height))
 
