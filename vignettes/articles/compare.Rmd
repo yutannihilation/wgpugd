@@ -1,0 +1,134 @@
+---
+title: "Comparison with other graphics device"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r}
+library(wgpugd)
+library(ragg)
+
+agg <- function(...) {
+  agg_png(width = 7, height = 7, units = "in", ...)
+}
+```
+
+## Line
+
+```{r line, fig.show='hold', out.width='50%'}
+do_line <- function(dev) {
+  filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
+  dev(filename = filename)
+
+  a <- pi * 1:3 / 7
+  x <- sin(a)
+  y <- cos(a)
+  col <- c("red", "blue", "green")
+  le <- c("round", "butt", "square")
+  
+  invisible(lapply(1:3, \(i) {
+    grid::grid.lines(
+      x = 0.5 + c(-0.35 * x[i], 0.7 * x[i]),
+      y = 0.5 + c(-0.35 * y[i], 0.7 * y[i]),
+      gp = grid::gpar(
+        col  = col[i],
+        alpha = 0.5,
+        lwd = 50 + 24 * i,
+        lineend = le[i]
+      )
+    )
+  }))
+
+  dev.off()
+  
+  knitr::include_graphics(filename)
+}
+
+do_line(agg)
+do_line(wgpugd)
+```
+
+## Rect
+
+```{r rect, fig.show='hold', out.width='50%'}
+do_rect <- function(dev) {
+  filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
+  dev(filename = filename)
+
+  grid::grid.rect(
+    x = c(0.8, 0.3),
+    y = c(0.8, 0.3),
+    width = c(0.8, 0.7),
+    height = c(0.8, 0.45),
+    gp = grid::gpar(
+      fill  = c("green", "blue"),
+      col   = c("yellow"),
+      lwd   = 40,
+      alpha = 0.5
+    )
+  )
+
+  dev.off()
+  
+  knitr::include_graphics(filename)
+}
+
+do_rect(agg)
+do_rect(wgpugd)
+```
+
+## Polygon
+
+From `?grid.polygon`
+
+```{r polygon}
+do_polygon <- function(dev) {
+  filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
+  dev(filename = filename)
+
+  grid::grid.polygon(x = outer(c(0, .5, 1, .5), 5:1/5),
+                     y = outer(c(.5, 1, .5, 0), 5:1/5),
+                     id.lengths = rep(4, 5),
+                     gp = grid::gpar(fill = 1:5, alpha = 0.5))
+
+  dev.off()
+  
+  knitr::include_graphics(filename)
+}
+
+do_polygon(agg)
+do_polygon(wgpugd)
+```
+
+
+## Circle
+
+```{r circle, fig.show='hold', out.width='50%'}
+do_circle <- function(dev) {
+  filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
+  dev(filename = filename)
+
+  grid::grid.circle(
+    x = c(0.8, 0.3),
+    y = c(0.8, 0.3),
+    r = c(0.5, 0.7),
+    gp = grid::gpar(
+      fill  = c("green", "blue"),
+      col   = c("yellow"),
+      lwd   = 40,
+      alpha = 0.5
+    )
+  )
+  dev.off()
+  
+  knitr::include_graphics(filename)
+}
+
+do_circle(agg)
+do_circle(wgpugd)
+```

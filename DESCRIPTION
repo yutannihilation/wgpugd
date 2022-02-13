@@ -12,9 +12,13 @@ Description: A high-performance raster graphics device utilizing the capabilitie
     to the R's graphics device API, the device provides an interface to customize
     the output with 'WebGPU Shader Language' (WGSL, <https://www.w3.org/TR/WGSL/>)
     for more advanced usages.
+URL: https://yutannihilation.github.io/wgpugd/, https://github.com/yutannihilation/wgpugd
+BugReports: https://github.com/yutannihilation/wgpugd/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
 Suggests: 
     rmarkdown
+Config/Needs/website:
+    ragg

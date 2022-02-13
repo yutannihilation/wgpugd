@@ -2,3 +2,8 @@ url: ~
 template:
   bootstrap: 5
 
+articles:
+- title: Comparison with other graphics device
+  navbar: ~
+  contents:
+  - compare
