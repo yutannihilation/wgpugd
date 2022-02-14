@@ -442,8 +442,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let fontfamily =
             unsafe { std::ffi::CStr::from_ptr(&gc.fontfamily as *const c_char) }.to_string_lossy();
 
-        reprintln!("[DEBUG] fontsize: {fontsize}");
-
         // TODO: Can I do this more nicely?
         let (weight, style) = match gc.fontface {
             // Plain
@@ -461,22 +459,30 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             }
         };
 
-        let query = fontdb::Query {
-            families: &[fontdb::Family::Name(&fontfamily), fontdb::Family::SansSerif],
+        let mut query = fontdb::Query {
+            families: &[fontdb::Family::Name(&fontfamily)],
             weight,
             stretch: fontdb::Stretch::Normal,
             style,
         };
 
-        let id = crate::text::FONTDB.query(&query);
+        let id = match crate::text::FONTDB.query(&query) {
+            Some(id) => id,
+            None => {
+                eprintln!("[WARN] font not found: {fontfamily}");
 
-        // TODO: fallback to a different font
-        if id.is_none() {
-            eprintln!("[WARN] font not found: {fontfamily}");
-            return;
-        }
+                // TODO: fallback to a proper font
+                query.families = &[fontdb::Family::SansSerif];
+                if let Some(fallback_id) = crate::text::FONTDB.query(&query) {
+                    fallback_id
+                } else {
+                    eprintln!("[WARN] No fallback font found, aborting");
+                    return;
+                }
+            }
+        };
 
-        FONTDB.with_face_data(id.unwrap(), |font_data, face_index| {
+        FONTDB.with_face_data(id, |font_data, face_index| {
             let font = ttf_parser::Face::from_slice(font_data, face_index).unwrap();
 
             let facetables = font.tables();
@@ -502,8 +508,12 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
                     prev_glyph = None;
                     continue;
                 }
+
                 // Even when we cannot find glyph_id, fill it with 0.
-                let cur_glyph = font.glyph_index(c).unwrap_or(GlyphId(0));
+                let cur_glyph = font
+                    .glyph_index(c)
+                    // .glyph_variation_index(c, unsafe { std::char::from_u32_unchecked(0xFE00) })
+                    .unwrap_or(GlyphId(0));
 
                 if let Some(prev_glyph) = prev_glyph {
                     builder.add_offset_x(crate::text::find_kerning(
