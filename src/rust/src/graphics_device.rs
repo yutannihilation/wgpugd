@@ -13,6 +13,9 @@ use ttf_parser::GlyphId;
 
 use crate::text::FONTDB;
 
+// TODO: determine tolerance nicely
+const DEFAULT_TOLERANCE: f32 = lyon::tessellation::FillOptions::DEFAULT_TOLERANCE;
+
 struct VertexCtor {
     color: u32,
     layer: u32,
@@ -194,9 +197,6 @@ impl crate::WgpuGraphicsDevice {
         mitre_limit: f32,
         close: bool,
     ) {
-        // TODO: determine tolerance nicely
-        let tolerance = 0.01;
-
         let mut builder = Path::builder();
 
         //
@@ -220,14 +220,14 @@ impl crate::WgpuGraphicsDevice {
         // **** Tessellate fill ***************************
         //
 
-        let fill_options = &FillOptions::tolerance(tolerance);
+        let fill_options = &FillOptions::tolerance(DEFAULT_TOLERANCE);
         self.tesselate_path_fill(&path, fill_options, fill);
 
         //
         // **** Tessellate stroke ***************************
         //
 
-        let stroke_options = &StrokeOptions::tolerance(tolerance)
+        let stroke_options = &StrokeOptions::tolerance(DEFAULT_TOLERANCE)
             .with_line_width(line_width)
             .with_line_cap(line_cap)
             .with_line_join(line_join)
@@ -344,14 +344,11 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let line_join = translate_line_join(gc.ljoin);
         let mitre_limit = gc.lmitre as f32;
 
-        // TODO: determine tolerance nicely
-        let tolerance = 0.01;
-
         //
         // **** Tessellate fill ***************************
         //
 
-        let fill_options = &FillOptions::tolerance(tolerance);
+        let fill_options = &FillOptions::tolerance(DEFAULT_TOLERANCE);
         self.tesselate_circle_fill(
             lyon::math::point(center.0 as _, center.1 as _),
             r as f32,
@@ -363,7 +360,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         // **** Tessellate stroke ***************************
         //
 
-        let stroke_options = &StrokeOptions::tolerance(tolerance)
+        let stroke_options = &StrokeOptions::tolerance(DEFAULT_TOLERANCE)
             .with_line_width(line_width)
             .with_line_cap(line_cap)
             .with_line_join(line_join)
@@ -385,9 +382,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let line_join = translate_line_join(gc.ljoin);
         let mitre_limit = gc.lmitre as f32;
 
-        // TODO: determine tolerance nicely
-        let tolerance = 0.01;
-
         let x = from.0.min(to.0) as f32;
         let y = from.1.min(to.1) as f32;
         let w = (to.0 - from.0).abs() as f32;
@@ -397,14 +391,14 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         // **** Tessellate fill ***************************
         //
 
-        let fill_options = &FillOptions::tolerance(tolerance);
+        let fill_options = &FillOptions::tolerance(DEFAULT_TOLERANCE);
         self.tesselate_rect_fill(&lyon::math::rect(x, y, w, h), fill_options, fill);
 
         //
         // **** Tessellate stroke ***************************
         //
 
-        let stroke_options = &StrokeOptions::tolerance(tolerance)
+        let stroke_options = &StrokeOptions::tolerance(DEFAULT_TOLERANCE)
             .with_line_width(line_width)
             .with_line_cap(line_cap)
             .with_line_join(line_join)
@@ -434,9 +428,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         _: DevDesc,
     ) {
         let fill = gc.col;
-
-        // TODO: determine tolerance nicely
-        let tolerance = 0.01;
 
         let fontsize = (gc.cex * gc.ps) as f32;
         let fontfamily =
@@ -536,7 +527,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             // **** Tessellate fill ***************************
             //
 
-            let fill_options = &FillOptions::tolerance(tolerance);
+            let fill_options = &FillOptions::tolerance(DEFAULT_TOLERANCE);
             self.tesselate_path_fill(&path, fill_options, fill);
         });
     }
