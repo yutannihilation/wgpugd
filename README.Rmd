@@ -23,6 +23,9 @@ knitr::opts_chunk$set(
 ### What is WebGPU?
 
 [WebGPU](https://www.w3.org/TR/webgpu/) is an API that exposes the capabilities of GPU hardware.
+As the name indicates, it's primarily designed for the Web. However, it's not only for the Web[^1].
+
+[^1]: <https://kvark.github.io/web/gpu/native/2020/05/03/point-of-webgpu-native.html>
 
 ### What is wgpu?
 

@@ -11,7 +11,8 @@
 ### What is WebGPU?
 
 [WebGPU](https://www.w3.org/TR/webgpu/) is an API that exposes the
-capabilities of GPU hardware.
+capabilities of GPU hardware. As the name indicates, it’s primarily
+designed for the Web. However, it’s not only for the Web[^1].
 
 ### What is wgpu?
 
@@ -80,3 +81,5 @@ knitr::include_graphics(file)
     started.
 -   [lyon](https://github.com/nical/lyon) is a library for “path
     tessellation,” which is necessary to draw lines on GPU.
+
+[^1]: <https://kvark.github.io/web/gpu/native/2020/05/03/point-of-webgpu-native.html>
