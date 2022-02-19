@@ -451,49 +451,15 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let fontfamily =
             unsafe { std::ffi::CStr::from_ptr(&gc.fontfamily as *const c_char) }.to_string_lossy();
 
-        // TODO: Can I do this more nicely?
-        let (weight, style) = match gc.fontface {
-            // Plain
-            1 => (fontdb::Weight::NORMAL, fontdb::Style::Normal),
-            // Bold
-            2 => (fontdb::Weight::BOLD, fontdb::Style::Normal),
-            // Italic
-            3 => (fontdb::Weight::NORMAL, fontdb::Style::Italic),
-            // BoldItalic
-            4 => (fontdb::Weight::BOLD, fontdb::Style::Italic),
-            // Symbolic or unknown
-            _ => {
-                reprintln!("[WARN] Unsupported fontface");
-                (fontdb::Weight::NORMAL, fontdb::Style::Normal)
-            }
-        };
-
-        let mut query = fontdb::Query {
-            families: &[fontdb::Family::Name(&fontfamily)],
-            weight,
-            stretch: fontdb::Stretch::Normal,
-            style,
-        };
-
-        let id = match crate::text::FONTDB.query(&query) {
+        let id = match crate::text::FONTDB.query(&fontfamily, gc.fontface) {
             Some(id) => id,
             None => {
-                if !fontfamily.is_empty() {
-                    reprintln!("[WARN] font not found: {query:?}");
-                }
-
-                // TODO: fallback to a proper font
-                query.families = &[fontdb::Family::SansSerif];
-                if let Some(fallback_id) = crate::text::FONTDB.query(&query) {
-                    fallback_id
-                } else {
-                    reprintln!("[WARN] No fallback font found, aborting");
-                    return TextMetric {
-                        ascent: 0.0,
-                        descent: 0.0,
-                        width: 0.0,
-                    };
-                }
+                reprintln!("[WARN] No fallback font found, aborting");
+                return TextMetric {
+                    ascent: 0.0,
+                    descent: 0.0,
+                    width: 0.0,
+                };
             }
         };
 
@@ -533,52 +499,16 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        reprintln!("[DEBUG] text: {pos:?}, text: {text}, angle: {angle}, hadj: {hadj}");
-
         let fill = gc.col;
 
         let fontfamily =
             unsafe { std::ffi::CStr::from_ptr(&gc.fontfamily as *const c_char) }.to_string_lossy();
 
-        // TODO: Can I do this more nicely?
-        let (weight, style) = match gc.fontface {
-            // Plain
-            1 => (fontdb::Weight::NORMAL, fontdb::Style::Normal),
-            // Bold
-            2 => (fontdb::Weight::BOLD, fontdb::Style::Normal),
-            // Italic
-            3 => (fontdb::Weight::NORMAL, fontdb::Style::Italic),
-            // BoldItalic
-            4 => (fontdb::Weight::BOLD, fontdb::Style::Italic),
-            // Symbolic or unknown
-            _ => {
-                reprintln!("[WARN] Unsupported fontface");
-                (fontdb::Weight::NORMAL, fontdb::Style::Normal)
-            }
-        };
-
-        let mut query = fontdb::Query {
-            families: &[fontdb::Family::Name(&fontfamily)],
-            weight,
-            stretch: fontdb::Stretch::Normal,
-            style,
-        };
-
-        let id = match crate::text::FONTDB.query(&query) {
+        let id = match crate::text::FONTDB.query(&fontfamily, gc.fontface) {
             Some(id) => id,
             None => {
-                if !fontfamily.is_empty() {
-                    reprintln!("[WARN] font not found: {query:?}");
-                }
-
-                // TODO: fallback to a proper font
-                query.families = &[fontdb::Family::SansSerif];
-                if let Some(fallback_id) = crate::text::FONTDB.query(&query) {
-                    fallback_id
-                } else {
-                    reprintln!("[WARN] No fallback font found, aborting");
-                    return;
-                }
+                reprintln!("[WARN] No fallback font found, aborting");
+                return;
             }
         };
 

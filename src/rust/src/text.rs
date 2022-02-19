@@ -1,9 +1,62 @@
+use extendr_api::prelude::*;
 use once_cell::sync::Lazy;
 
-pub static FONTDB: Lazy<fontdb::Database> = Lazy::new(|| {
+pub(crate) struct FontDBWrapper {
+    db: fontdb::Database,
+    fallback_glyph_id: Option<fontdb::ID>,
+}
+
+impl FontDBWrapper {
+    pub(crate) fn query(&self, fontfamily: &str, fontface: i32) -> Option<fontdb::ID> {
+        // TODO: Can I do this more nicely?
+        let (weight, style) = match fontface {
+            1 => (fontdb::Weight::NORMAL, fontdb::Style::Normal), // Plain
+            2 => (fontdb::Weight::BOLD, fontdb::Style::Normal),   // Bold
+            3 => (fontdb::Weight::NORMAL, fontdb::Style::Italic), // Italic
+            4 => (fontdb::Weight::BOLD, fontdb::Style::Italic),   // BoldItalic
+            // Symbolic or unknown
+            _ => {
+                reprintln!("[WARN] Unsupported fontface");
+                (fontdb::Weight::NORMAL, fontdb::Style::Normal)
+            }
+        };
+
+        if let Some(id) = self.db.query(&fontdb::Query {
+            families: &[fontdb::Family::Name(fontfamily)],
+            weight,
+            stretch: fontdb::Stretch::Normal,
+            style,
+        }) {
+            Some(id)
+        } else {
+            reprintln!(
+                "[WARN] Cannot find the specified font family, falling back to the default font..."
+            );
+            self.fallback_glyph_id
+        }
+    }
+
+    pub(crate) fn with_face_data<P, T>(&self, id: fontdb::ID, p: P) -> Option<T>
+    where
+        P: FnOnce(&[u8], u32) -> T,
+    {
+        self.db.with_face_data(id, p)
+    }
+}
+
+pub(crate) static FONTDB: Lazy<FontDBWrapper> = Lazy::new(|| {
     let mut db = fontdb::Database::new();
     db.load_system_fonts();
-    db
+
+    let fallback_glyph_id = db.query(&fontdb::Query {
+        families: &[fontdb::Family::SansSerif],
+        ..Default::default()
+    });
+
+    FontDBWrapper {
+        db,
+        fallback_glyph_id,
+    }
 });
 
 pub(crate) struct LyonOutlineBuilder {
