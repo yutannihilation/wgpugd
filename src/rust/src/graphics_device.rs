@@ -448,11 +448,70 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     // top and bottom. This should be properly done by querying to a font
     // database (e.g. https://github.com/RazrFalcon/fontdb).
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
-        TextMetric {
-            ascent: 1.1 * gc.ps,
-            descent: 0.1 * gc.ps,
-            width: gc.ps,
-        }
+        let fontsize = (gc.cex * gc.ps) as f64;
+        let fontfamily =
+            unsafe { std::ffi::CStr::from_ptr(&gc.fontfamily as *const c_char) }.to_string_lossy();
+
+        // TODO: Can I do this more nicely?
+        let (weight, style) = match gc.fontface {
+            // Plain
+            1 => (fontdb::Weight::NORMAL, fontdb::Style::Normal),
+            // Bold
+            2 => (fontdb::Weight::BOLD, fontdb::Style::Normal),
+            // Italic
+            3 => (fontdb::Weight::NORMAL, fontdb::Style::Italic),
+            // BoldItalic
+            4 => (fontdb::Weight::BOLD, fontdb::Style::Italic),
+            // Symbolic or unknown
+            _ => {
+                eprintln!("[WARN] Unsupported fontface");
+                (fontdb::Weight::NORMAL, fontdb::Style::Normal)
+            }
+        };
+
+        let mut query = fontdb::Query {
+            families: &[fontdb::Family::Name(&fontfamily)],
+            weight,
+            stretch: fontdb::Stretch::Normal,
+            style,
+        };
+
+        let id = match crate::text::FONTDB.query(&query) {
+            Some(id) => id,
+            None => {
+                if !fontfamily.is_empty() {
+                    reprintln!("[WARN] font not found: {fontfamily}");
+                }
+
+                // TODO: fallback to a proper font
+                query.families = &[fontdb::Family::SansSerif];
+                if let Some(fallback_id) = crate::text::FONTDB.query(&query) {
+                    fallback_id
+                } else {
+                    reprintln!("[WARN] No fallback font found, aborting");
+                    return TextMetric {
+                        ascent: 0.0,
+                        descent: 0.0,
+                        width: 0.0,
+                    };
+                }
+            }
+        };
+
+        FONTDB
+            .with_face_data(id, |font_data, face_index| {
+                let font = ttf_parser::Face::from_slice(font_data, face_index).unwrap();
+                let height = font.height() as f64;
+
+                let glyph_id = font.glyph_index(c).unwrap_or(GlyphId(0));
+
+                TextMetric {
+                    ascent: font.ascender() as f64 * fontsize / height,
+                    descent: font.descender() as f64 * fontsize / height,
+                    width: font.glyph_hor_advance(glyph_id).unwrap_or(0) as f64 * fontsize / height,
+                }
+            })
+            .unwrap()
     }
 
     fn text(
@@ -561,10 +620,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             }
 
             // First, move the origin depending on `hadj`
-            let transform_hadj = glam::Affine2::from_translation(glam::vec2(
-                builder.offset_x() * -hadj as f32,
-                -fontsize / 2.0 * capital_height_ratio,
-            ));
+            let transform_hadj =
+                glam::Affine2::from_translation(glam::vec2(builder.offset_x() * -hadj as f32, 0.0));
 
             // Second, rotate and translate to the position
             let transform = transform_hadj

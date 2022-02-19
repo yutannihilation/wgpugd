@@ -57,8 +57,8 @@ dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 
 ggplot(dsamp, aes(carat, price)) +
   geom_point(aes(colour = clarity)) +
-  labs(title = "Now I can", y = "render", x ="texts!!!") +
-  theme(text = element_text(size = 20), legend.position = "none")
+  ggtitle("Hmm...", subtitle = "why is the Y-axis label that location??") +
+  theme(text = element_text(size = 20))
 
 dev.off()
 #> png 
