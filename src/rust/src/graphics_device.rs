@@ -1,4 +1,4 @@
-use std::os::raw::c_char;
+use std::{f32::consts::PI, os::raw::c_char};
 
 use extendr_api::{
     graphics::{ClippingStrategy, DevDesc, DeviceDriver, R_GE_gcontext, TextMetric},
@@ -11,6 +11,8 @@ use lyon::tessellation::{FillOptions, FillTessellator, FillVertex};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator, StrokeVertex};
 use ttf_parser::GlyphId;
 
+use glam::f32::Affine2;
+
 use crate::text::FONTDB;
 
 // TODO: determine tolerance nicely
@@ -19,22 +21,28 @@ const DEFAULT_TOLERANCE: f32 = lyon::tessellation::FillOptions::DEFAULT_TOLERANC
 struct VertexCtor {
     color: u32,
     layer: u32,
+    transform: Affine2,
 }
 
 impl VertexCtor {
-    fn new(color: i32, layer: u32) -> Self {
+    fn new(color: i32, layer: u32, transform: Affine2) -> Self {
         Self {
             color: unsafe { std::mem::transmute(color) },
             layer,
+            transform,
         }
     }
 }
 
 impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> crate::Vertex {
-        let pos = vertex.position();
+        let position_orig: mint::Point2<_> = vertex.position().into();
+        let position = self.transform.transform_point2(position_orig.into()).into();
+
+        // reprintln!("before: {position:?}, after: {position_orig:?}");
+
         crate::Vertex {
-            position: pos.into(),
+            position,
             color: self.color,
             layer: self.layer,
         }
@@ -43,9 +51,13 @@ impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
 
 impl FillVertexConstructor<crate::Vertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: FillVertex) -> crate::Vertex {
-        let pos = vertex.position();
+        let position_orig: mint::Point2<_> = vertex.position().into();
+        let position = self.transform.transform_point2(position_orig.into()).into();
+
+        // reprintln!("before: {position:?}, after: {position_orig:?}");
+
         crate::Vertex {
-            position: pos.into(),
+            position,
             color: self.color,
             layer: self.layer,
         }
@@ -54,13 +66,28 @@ impl FillVertexConstructor<crate::Vertex> for VertexCtor {
 
 impl crate::WgpuGraphicsDevice {
     fn tesselate_path_stroke(&mut self, path: &Path, stroke_options: &StrokeOptions, color: i32) {
+        self.tesselate_path_stroke_with_transform(
+            path,
+            stroke_options,
+            color,
+            glam::Affine2::IDENTITY,
+        );
+    }
+
+    fn tesselate_path_stroke_with_transform(
+        &mut self,
+        path: &Path,
+        stroke_options: &StrokeOptions,
+        color: i32,
+        transform: glam::Affine2,
+    ) {
         if color.is_na() {
             return;
         }
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _);
+        let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
 
         stroke_tess
             .tessellate_path(
@@ -72,13 +99,23 @@ impl crate::WgpuGraphicsDevice {
     }
 
     fn tesselate_path_fill(&mut self, path: &Path, fill_options: &FillOptions, color: i32) {
+        self.tesselate_path_fill_with_transform(path, fill_options, color, glam::Affine2::IDENTITY);
+    }
+
+    fn tesselate_path_fill_with_transform(
+        &mut self,
+        path: &Path,
+        fill_options: &FillOptions,
+        color: i32,
+        transform: glam::Affine2,
+    ) {
         if color.is_na() {
             return;
         }
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _);
+        let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
 
         fill_tess
             .tessellate_path(
@@ -102,7 +139,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _);
+        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
 
         stroke_tess
             .tessellate_circle(
@@ -127,7 +164,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _);
+        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
 
         fill_tess
             .tessellate_circle(
@@ -151,7 +188,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _);
+        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
 
         stroke_tess
             .tessellate_rectangle(
@@ -174,7 +211,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _);
+        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
 
         fill_tess
             .tessellate_rectangle(
@@ -460,14 +497,16 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let id = match crate::text::FONTDB.query(&query) {
             Some(id) => id,
             None => {
-                eprintln!("[WARN] font not found: {fontfamily}");
+                if !fontfamily.is_empty() {
+                    reprintln!("[WARN] font not found: {fontfamily}");
+                }
 
                 // TODO: fallback to a proper font
                 query.families = &[fontdb::Family::SansSerif];
                 if let Some(fallback_id) = crate::text::FONTDB.query(&query) {
                     fallback_id
                 } else {
-                    eprintln!("[WARN] No fallback font found, aborting");
+                    reprintln!("[WARN] No fallback font found, aborting");
                     return;
                 }
             }
@@ -479,32 +518,32 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             let facetables = font.tables();
 
             let height = font.height() as f32;
-            let line_height = height + font.line_gap() as f32;
+
+            // TODO: probably this is not correct...?
+            let capital_height_ratio = match font.capital_height() {
+                Some(h) if h > 0 => h as f32 / height,
+                // In case the capital height is not available, fallback to
+                // height / height, i.e., 1.0
+                _ => 1.0,
+            };
 
             // TODO: what size is the correct size?
             let scale_factor = fontsize / height;
 
-            let mut builder =
-                crate::text::LyonOutlineBuilder::new(scale_factor, pos.0 as _, pos.1 as _);
+            let mut builder = crate::text::LyonOutlineBuilder::new(scale_factor);
 
             let mut prev_glyph: Option<GlyphId> = None;
             for c in text.chars() {
-                // Skip control characters
+                // Skip control characters. Note that it seems linebreaks are
+                // handled on R's side, so we don't need to care about multiline
+                // cases.
                 if c.is_control() {
-                    // If the character is a line break, move to the next line
-                    if c == '\n' {
-                        builder.add_offset_y(-line_height);
-                        builder.set_offset_x(pos.0 as _);
-                    }
                     prev_glyph = None;
                     continue;
                 }
 
                 // Even when we cannot find glyph_id, fill it with 0.
-                let cur_glyph = font
-                    .glyph_index(c)
-                    // .glyph_variation_index(c, unsafe { std::char::from_u32_unchecked(0xFE00) })
-                    .unwrap_or(GlyphId(0));
+                let cur_glyph = font.glyph_index(c).unwrap_or(GlyphId(0));
 
                 if let Some(prev_glyph) = prev_glyph {
                     builder.add_offset_x(crate::text::find_kerning(
@@ -521,6 +560,19 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
                 prev_glyph = Some(cur_glyph);
             }
 
+            // First, move the origin depending on `hadj`
+            let transform_hadj = glam::Affine2::from_translation(glam::vec2(
+                builder.offset_x() * -hadj as f32,
+                -fontsize / 2.0 * capital_height_ratio,
+            ));
+
+            // Second, rotate and translate to the position
+            let transform = transform_hadj
+                * glam::Affine2::from_angle_translation(
+                    angle as f32 / 360.0 * 2. * PI,
+                    glam::vec2(pos.0 as _, pos.1 as _),
+                );
+
             let path = builder.build();
 
             //
@@ -528,7 +580,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             //
 
             let fill_options = &FillOptions::tolerance(DEFAULT_TOLERANCE);
-            self.tesselate_path_fill(&path, fill_options, fill);
+            self.tesselate_path_fill_with_transform(&path, fill_options, fill, transform);
         });
     }
 

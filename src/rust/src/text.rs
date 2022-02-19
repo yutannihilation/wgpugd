@@ -12,16 +12,14 @@ pub(crate) struct LyonOutlineBuilder {
     scale_factor: f32,
 
     offset_x: f32,
-    offset_y: f32,
 }
 
 impl LyonOutlineBuilder {
-    pub(crate) fn new(scale_factor: f32, offset_x: f32, offset_y: f32) -> Self {
+    pub(crate) fn new(scale_factor: f32) -> Self {
         Self {
             builder: lyon::path::Path::builder(),
             scale_factor,
-            offset_x,
-            offset_y,
+            offset_x: 0.0,
         }
     }
 
@@ -30,27 +28,15 @@ impl LyonOutlineBuilder {
     }
 
     fn point(&self, x: f32, y: f32) -> lyon::math::Point {
-        lyon::math::point(
-            x * self.scale_factor + self.offset_x,
-            y * self.scale_factor + self.offset_y,
-            // y * self.scale_factor + self.offset_y,
-        )
+        lyon::math::point(x * self.scale_factor + self.offset_x, y * self.scale_factor)
     }
 
     pub(crate) fn add_offset_x(&mut self, offset: f32) {
         self.offset_x += offset * self.scale_factor;
     }
 
-    pub(crate) fn add_offset_y(&mut self, offset: f32) {
-        self.offset_y += offset * self.scale_factor;
-    }
-
-    pub(crate) fn set_offset_x(&mut self, offset: f32) {
-        self.offset_x = offset * self.scale_factor;
-    }
-
-    pub(crate) fn set_offset_y(&mut self, offset: f32) {
-        self.offset_y = offset * self.scale_factor;
+    pub(crate) fn offset_x(&self) -> f32 {
+        self.offset_x
     }
 }
 
@@ -93,7 +79,6 @@ pub(crate) fn find_kerning(
     };
 
     for st in kern_table.subtables {
-        // Do I need to also skip if the font is variable?
         if !st.horizontal {
             continue;
         }

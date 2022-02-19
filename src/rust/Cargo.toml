@@ -31,5 +31,13 @@ once_cell = "1.9"
 fontdb = "0.8"
 ttf-parser = "0.14.0"
 
+# glam is needed for matrix algebra
+glam = { version = "0.20", features = ["mint"] }
+
+# mint and euclid is needed to convert between lyon and glam
+mint = "0.5"
+euclid = { version = "0.22", features = ["mint"] }
+
+
 [patch.crates-io]
 libR-sys = { git = "https://github.com/extendr/libR-sys" }

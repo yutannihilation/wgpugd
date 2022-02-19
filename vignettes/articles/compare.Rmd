@@ -133,3 +133,28 @@ do_circle <- function(dev) {
 do_circle(agg)
 do_circle(wgpugd)
 ```
+
+
+## Text
+
+```{r text, fig.show='hold', out.width='50%'}
+do_text <- function(dev) {
+  filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
+  dev(filename = filename)
+
+  x <- y <- grid::unit(0.5, "npc")
+  grid::grid.points(x = x, y = y)
+  lapply(72 * 7 / 2 + (-2):2 * 20, function(x) {
+    grid::grid.lines(x = grid::unit(c(0, 1), "npc"), y = grid::unit(c(x, x), "points"))
+  })
+  grid::grid.text(label = "gla\nd", hjust = 1, vjust = 0, gp = grid::gpar(cex = 5, col = "red"))
+  grid::grid.text(label = "ve\nrrr\nrry", hjust = 0, vjust = 1, gp = grid::gpar(cex = 5, col = "blue"))
+  grid::grid.text(label = "rot", x = 0.4, y = 0.4, hjust = 0.5, vjust = 0.5, rot = 30, gp = grid::gpar(cex = 5, col = "green", alpha = 0.4))
+  dev.off()
+  
+  knitr::include_graphics(filename)
+}
+
+do_text(agg)
+do_text(wgpugd)
+```

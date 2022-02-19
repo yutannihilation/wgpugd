@@ -223,6 +223,7 @@ version = "0.22.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da96828553a086d7b18dcebfc579bd9628b016f86590d7453c115e490fa74b80"
 dependencies = [
+ "mint",
  "num-traits",
 ]
 
@@ -310,6 +311,15 @@ dependencies = [
  "cfg-if",
  "libc",
  "wasi",
+]
+
+[[package]]
+name = "glam"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4fa84eead97d5412b2a20aed4d66612a97a9e41e08eababdb9ae2bf88667490"
+dependencies = [
+ "mint",
 ]
 
 [[package]]
@@ -569,6 +579,12 @@ checksum = "d2b29bd4bc3f33391105ebee3589c19197c4271e3e5a9ec9bfe8127eeff8f082"
 dependencies = [
  "adler",
 ]
+
+[[package]]
+name = "mint"
+version = "0.5.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e53debba6bda7a793e5f99b8dacf19e626084f525f7829104ba9898f367d85ff"
 
 [[package]]
 name = "naga"
@@ -1031,9 +1047,12 @@ name = "wgpugd"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "euclid",
  "extendr-api",
  "fontdb",
+ "glam",
  "lyon",
+ "mint",
  "once_cell",
  "png",
  "pollster",
