@@ -60,14 +60,15 @@ library(ggplot2)
 
 file <- knitr::fig_path('.png')
 wgpugd(file, 10, 10)
+# ragg::agg_png(file, 10, 10, unit = "in")
 
 set.seed(10)
 dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 
 ggplot(dsamp, aes(carat, price)) +
   geom_point(aes(colour = clarity)) +
-  ggtitle("Hmm...", subtitle = "why is the Y-axis label that location??") +
-  theme(text = element_text(size = 20))
+  ggtitle("＼( 'ω')／ウオオオオオオアアアアーーーーッッッ！！！！") +
+  theme(text = element_text(size = 30, family = "Noto Sans JP"))
 
 dev.off()
 

@@ -468,7 +468,18 @@ fn wgpugd(
     device_driver.create_device::<WgpuGraphicsDevice>(device_descriptor, "wgpugd");
 }
 
+/// @export
+#[extendr]
+fn debug_metricInfo() {
+    let device = extendr_api::graphics::Device::current().unwrap();
+    let mut gc =
+        extendr_api::graphics::Context::from_device(&device, extendr_api::graphics::Unit::Inches);
+    let foo = device.char_metric('d', gc.font_family("Iosevka").point_size(12.0));
+    reprintln!("{foo:?}");
+}
+
 extendr_module! {
     mod wgpugd;
+    fn debug_metricInfo;
     fn wgpugd;
 }

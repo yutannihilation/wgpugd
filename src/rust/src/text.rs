@@ -15,10 +15,10 @@ pub(crate) struct LyonOutlineBuilder {
 }
 
 impl LyonOutlineBuilder {
-    pub(crate) fn new(scale_factor: f32) -> Self {
+    pub(crate) fn new(scale: f32) -> Self {
         Self {
             builder: lyon::path::Path::builder(),
-            scale_factor,
+            scale_factor: scale,
             offset_x: 0.0,
         }
     }

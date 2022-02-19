@@ -8,6 +8,9 @@
 #' @useDynLib wgpugd, .registration = TRUE
 NULL
 
+#' @export
+debug_metricInfo <- function() invisible(.Call(wrap__debug_metricInfo))
+
 #' A WebGPU Graphics Device for R
 #'
 #' @param filename

@@ -448,7 +448,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     // top and bottom. This should be properly done by querying to a font
     // database (e.g. https://github.com/RazrFalcon/fontdb).
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
-        let fontsize = (gc.cex * gc.ps) as f64;
         let fontfamily =
             unsafe { std::ffi::CStr::from_ptr(&gc.fontfamily as *const c_char) }.to_string_lossy();
 
@@ -464,7 +463,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             4 => (fontdb::Weight::BOLD, fontdb::Style::Italic),
             // Symbolic or unknown
             _ => {
-                eprintln!("[WARN] Unsupported fontface");
+                reprintln!("[WARN] Unsupported fontface");
                 (fontdb::Weight::NORMAL, fontdb::Style::Normal)
             }
         };
@@ -480,7 +479,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             Some(id) => id,
             None => {
                 if !fontfamily.is_empty() {
-                    reprintln!("[WARN] font not found: {fontfamily}");
+                    reprintln!("[WARN] font not found: {query:?}");
                 }
 
                 // TODO: fallback to a proper font
@@ -501,14 +500,25 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         FONTDB
             .with_face_data(id, |font_data, face_index| {
                 let font = ttf_parser::Face::from_slice(font_data, face_index).unwrap();
-                let height = font.height() as f64;
+                let scale = gc.cex * gc.ps / font.height() as f64;
 
                 let glyph_id = font.glyph_index(c).unwrap_or(GlyphId(0));
 
-                TextMetric {
-                    ascent: font.ascender() as f64 * fontsize / height,
-                    descent: font.descender() as f64 * fontsize / height,
-                    width: font.glyph_hor_advance(glyph_id).unwrap_or(0) as f64 * fontsize / height,
+                match font.glyph_bounding_box(glyph_id) {
+                    Some(bbox) => TextMetric {
+                        ascent: bbox.y_max as f64 * scale,
+                        descent: bbox.y_min as f64 * scale,
+                        width: font
+                            .glyph_hor_advance(glyph_id)
+                            .unwrap_or(bbox.width() as _) as f64
+                            * scale,
+                    },
+                    // If the glyph info is not available, use font info
+                    _ => TextMetric {
+                        ascent: font.ascender() as f64 * scale,
+                        descent: font.descender() as f64 * scale,
+                        width: font.height() as f64 * scale,
+                    },
                 }
             })
             .unwrap()
@@ -523,9 +533,10 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        reprintln!("[DEBUG] text: {pos:?}, text: {text}, angle: {angle}, hadj: {hadj}");
+
         let fill = gc.col;
 
-        let fontsize = (gc.cex * gc.ps) as f32;
         let fontfamily =
             unsafe { std::ffi::CStr::from_ptr(&gc.fontfamily as *const c_char) }.to_string_lossy();
 
@@ -541,7 +552,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             4 => (fontdb::Weight::BOLD, fontdb::Style::Italic),
             // Symbolic or unknown
             _ => {
-                eprintln!("[WARN] Unsupported fontface");
+                reprintln!("[WARN] Unsupported fontface");
                 (fontdb::Weight::NORMAL, fontdb::Style::Normal)
             }
         };
@@ -557,7 +568,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             Some(id) => id,
             None => {
                 if !fontfamily.is_empty() {
-                    reprintln!("[WARN] font not found: {fontfamily}");
+                    reprintln!("[WARN] font not found: {query:?}");
                 }
 
                 // TODO: fallback to a proper font
@@ -576,20 +587,14 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
 
             let facetables = font.tables();
 
-            let height = font.height() as f32;
+            // Deviding by `height` is to normalize the font coordinates to 1.
+            // Then, multiply by `cex` (size of the font in device specific
+            // unit) and `px` (pointsize, should be 12) to convert to the value
+            // in points. Since the range of the values actually matters on
+            // tessellation, we need to multiply before tessellation.
+            let scale = (gc.cex * gc.ps) as f32 / font.height() as f32;
 
-            // TODO: probably this is not correct...?
-            let capital_height_ratio = match font.capital_height() {
-                Some(h) if h > 0 => h as f32 / height,
-                // In case the capital height is not available, fallback to
-                // height / height, i.e., 1.0
-                _ => 1.0,
-            };
-
-            // TODO: what size is the correct size?
-            let scale_factor = fontsize / height;
-
-            let mut builder = crate::text::LyonOutlineBuilder::new(scale_factor);
+            let mut builder = crate::text::LyonOutlineBuilder::new(scale);
 
             let mut prev_glyph: Option<GlyphId> = None;
             for c in text.chars() {
@@ -624,11 +629,10 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
                 glam::Affine2::from_translation(glam::vec2(builder.offset_x() * -hadj as f32, 0.0));
 
             // Second, rotate and translate to the position
-            let transform = transform_hadj
-                * glam::Affine2::from_angle_translation(
-                    angle as f32 / 360.0 * 2. * PI,
-                    glam::vec2(pos.0 as _, pos.1 as _),
-                );
+            let transform = glam::Affine2::from_angle_translation(
+                angle as f32 / 360.0 * 2. * PI,
+                glam::vec2(pos.0 as _, pos.1 as _),
+            ) * transform_hadj;
 
             let path = builder.build();
 
