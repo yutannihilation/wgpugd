@@ -158,3 +158,38 @@ do_text <- function(dev) {
 do_text(agg)
 do_text(wgpugd)
 ```
+
+```{r text2, fig.show='hold', out.width='50%'}
+do_text2 <- function(dev) {
+  filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
+  dev(filename = filename)
+
+  grid::grid.text(
+    x = grid::unit(0.5, "npc"),
+    y = grid::unit(0.5, "npc"),
+    label = "d",
+    hjust = 0.5,
+    vjust = 0,
+    gp = grid::gpar(col = "brown", cex = 24, fontfamily = "Iosevka SS08")
+  )
+  
+  f <- function(x, ...) {
+    grid::grid.lines(
+      x = grid::unit(c(0, 1), "npc"),
+      y = grid::unit(rep(12, 2) * x, "points") + grid::unit(c(0.5, 0.5), "npc"),
+      gp = grid::gpar(...)
+    )
+    invisible(NULL)
+  }
+  
+  lapply(1:20, f, lty = 5, col = "purple", alpha = 0.7)
+  lapply(0:2 * 10, f, col = "black")
+
+  dev.off()
+  
+  knitr::include_graphics(filename)
+}
+
+do_text2(agg)
+do_text2(wgpugd)
+```
