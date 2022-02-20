@@ -15,17 +15,22 @@ use extendr_api::{
 use lyon::lyon_tessellation::VertexBuffers;
 use wgpu::util::DeviceExt;
 
+// This should match with shaders.wgsl
+const MAX_LAYERS: usize = 8;
+
+// For general shapes --------------------------------------------
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
-    position: [f32; 2],
+    position: [f32; 3],
     color: u32,
-    layer: u32,
+    clipping_id: i32,
 }
 
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 3] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Uint32, 2 => Uint32];
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32, 2 => Sint32];
 
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
@@ -36,8 +41,50 @@ impl Vertex {
     }
 }
 
-// This should match with shaders.wgsl
-const MAX_LAYERS: usize = 8;
+// For circles ----------------------------------------------------
+
+// For the sake of performance, we treat circle differently as they can be
+// simply represented by a SDF.
+
+#[rustfmt::skip]
+const RECT_VERTICES: &[Vertex] = &[
+    // color and layer are not used, but fill with 0
+    Vertex { position: [1.0, 0.0, 0.0], color: 0, clipping_id: 0 },
+    Vertex { position: [0.0, 0.0, 0.0], color: 0, clipping_id: 0 },
+    Vertex { position: [0.0, 1.0, 0.0], color: 0, clipping_id: 0 },
+    Vertex { position: [1.0, 1.0, 0.0], color: 0, clipping_id: 0 },
+];
+const RECT_INDICES: &[u32] = &[0, 1, 2, 0, 2, 3];
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct CircleInstance {
+    center: [f32; 2],
+    radius: f32,
+    stroke_width: f32,
+    fill_color: u32,
+    stroke_color: u32,
+    layer: u32,
+}
+
+impl CircleInstance {
+    const ATTRIBS: [wgpu::VertexAttribute; 6] = wgpu::vertex_attr_array![
+        3 => Float32x2,
+        4 => Float32,
+        5 => Float32,
+        6 => Uint32,
+        7 => Uint32,
+        8 => Uint32
+    ];
+
+    pub(crate) fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -61,7 +108,7 @@ impl LayerClippings {
         self.clippings
             .push([[from.0 as _, from.1 as _], [to.0 as _, to.1 as _]]);
 
-        self.clippings.len()
+        self.clippings.len() - 1
     }
 
     fn to_array(&self) -> [[[f32; 2]; 2]; MAX_LAYERS] {
@@ -91,12 +138,17 @@ struct WgpuGraphicsDevice {
 
     render_pipeline: wgpu::RenderPipeline,
 
+    circle_instances: Vec<CircleInstance>,
+
     geometry: VertexBuffers<Vertex, u32>,
 
     // For MSAA
     multisampled_framebuffer: wgpu::TextureView,
 
     layer_clippings: LayerClippings,
+    current_clipping_id: i32,
+
+    // On clipping or instanced rendering layer, increment this layer id
     current_layer: usize,
 
     // width and height in point
@@ -240,6 +292,7 @@ impl WgpuGraphicsDevice {
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc()],
+                // buffers: &[Vertex::desc(), CircleInstance::desc()],
             },
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
@@ -281,11 +334,15 @@ impl WgpuGraphicsDevice {
 
             render_pipeline,
 
+            circle_instances: Vec::new(),
+
             geometry,
 
             multisampled_framebuffer,
 
             layer_clippings: LayerClippings::new(),
+            current_clipping_id: -1,
+
             current_layer: 0,
 
             width,
@@ -317,6 +374,15 @@ impl WgpuGraphicsDevice {
                 contents: bytemuck::cast_slice(self.geometry.indices.as_slice()),
                 usage: wgpu::BufferUsages::INDEX,
             });
+
+        let circle_instance_buffer =
+            &self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("wgpugd instance buffer"),
+                    contents: bytemuck::cast_slice(self.circle_instances.as_slice()),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
 
         self.queue.write_buffer(
             &self.globals_uniform_buffer,
@@ -363,6 +429,7 @@ impl WgpuGraphicsDevice {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            // render_pass.set_vertex_buffer(1, circle_instance_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..num_indices, 0, 0..1);
 

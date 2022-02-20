@@ -1,0 +1,64 @@
+---
+title: "benchmark"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Benchmark
+
+### Just open and close the device
+
+```{r bench1}
+library(ggplot2)
+
+file <- tempfile(fileext = '.png')
+
+res <- bench::mark(
+  wgpugd = {
+    wgpugd::wgpugd(file, 10, 10)
+    dev.off()
+  },
+  ragg =  {
+    ragg::agg_png(file, 10, 10, unit = "in")
+    dev.off()
+  },
+  min_iterations = 30
+)
+
+res
+
+autoplot(res)
+```
+
+
+### Actual protting
+
+```{r bench2}
+set.seed(10)
+dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
+
+res <- bench::mark(
+  wgpugd = {
+    wgpugd::wgpugd(file, 10, 10)
+    ggplot(dsamp, aes(carat, price)) +
+      geom_point(aes(colour = clarity))
+    dev.off()
+  },
+  ragg =  {
+    ragg::agg_png(file, 10, 10, unit = "in")
+    ggplot(dsamp, aes(carat, price)) +
+      geom_point(aes(colour = clarity))
+    dev.off()
+  },
+  min_iterations = 30
+)
+
+res
+
+autoplot(res)
+```

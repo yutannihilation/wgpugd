@@ -16,18 +16,20 @@ use glam::f32::Affine2;
 use crate::text::FONTDB;
 
 // TODO: determine tolerance nicely
-const DEFAULT_TOLERANCE: f32 = lyon::tessellation::FillOptions::DEFAULT_TOLERANCE;
+pub(crate) const DEFAULT_TOLERANCE: f32 = lyon::tessellation::FillOptions::DEFAULT_TOLERANCE;
 
 struct VertexCtor {
     color: u32,
+    clipping_id: i32,
     layer: u32,
     transform: Affine2,
 }
 
 impl VertexCtor {
-    fn new(color: i32, layer: u32, transform: Affine2) -> Self {
+    fn new(color: i32, clipping_id: i32, layer: u32, transform: Affine2) -> Self {
         Self {
             color: unsafe { std::mem::transmute(color) },
+            clipping_id,
             layer,
             transform,
         }
@@ -37,14 +39,16 @@ impl VertexCtor {
 impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> crate::Vertex {
         let position_orig: mint::Point2<_> = vertex.position().into();
-        let position = self.transform.transform_point2(position_orig.into()).into();
-
-        // reprintln!("before: {position:?}, after: {position_orig:?}");
+        let position = self.transform.transform_point2(position_orig.into());
 
         crate::Vertex {
-            position,
+            position: [
+                position[0],
+                position[1],
+                self.layer as f32 / std::u32::MAX as f32,
+            ],
             color: self.color,
-            layer: self.layer,
+            clipping_id: self.clipping_id,
         }
     }
 }
@@ -52,14 +56,16 @@ impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
 impl FillVertexConstructor<crate::Vertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: FillVertex) -> crate::Vertex {
         let position_orig: mint::Point2<_> = vertex.position().into();
-        let position = self.transform.transform_point2(position_orig.into()).into();
-
-        // reprintln!("before: {position:?}, after: {position_orig:?}");
+        let position = self.transform.transform_point2(position_orig.into());
 
         crate::Vertex {
-            position,
+            position: [
+                position[0],
+                position[1],
+                self.layer as f32 / std::u32::MAX as f32,
+            ],
             color: self.color,
-            layer: self.layer,
+            clipping_id: self.clipping_id,
         }
     }
 }
@@ -87,7 +93,12 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
+        let ctxt = VertexCtor::new(
+            color,
+            self.current_clipping_id,
+            self.current_layer as _,
+            transform,
+        );
 
         stroke_tess
             .tessellate_path(
@@ -115,7 +126,12 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
+        let ctxt = VertexCtor::new(
+            color,
+            self.current_clipping_id,
+            self.current_layer as _,
+            transform,
+        );
 
         fill_tess
             .tessellate_path(
@@ -139,7 +155,12 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
+        let ctxt = VertexCtor::new(
+            color,
+            self.current_clipping_id,
+            self.current_layer as _,
+            glam::Affine2::IDENTITY,
+        );
 
         stroke_tess
             .tessellate_circle(
@@ -164,7 +185,12 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
+        let ctxt = VertexCtor::new(
+            color,
+            self.current_clipping_id,
+            self.current_layer as _,
+            glam::Affine2::IDENTITY,
+        );
 
         fill_tess
             .tessellate_circle(
@@ -188,7 +214,12 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
+        let ctxt = VertexCtor::new(
+            color,
+            self.current_clipping_id,
+            self.current_layer as _,
+            glam::Affine2::IDENTITY,
+        );
 
         stroke_tess
             .tessellate_rectangle(
@@ -211,7 +242,12 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
+        let ctxt = VertexCtor::new(
+            color,
+            self.current_clipping_id,
+            self.current_layer as _,
+            glam::Affine2::IDENTITY,
+        );
 
         fill_tess
             .tessellate_rectangle(
@@ -576,14 +612,17 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
+        // new layer
+        self.current_layer += 1;
+
         // If the clipping contains the whole layer, skip it
         if from.0 <= 0. && from.1 <= 0. && to.0 >= self.width as _ && to.1 >= self.height as _ {
-            self.current_layer = 0;
+            self.current_clipping_id = -1;
         } else {
-            let layer_id = self.layer_clippings.add_clipping(from, to);
+            let clipping_id = self.layer_clippings.add_clipping(from, to);
 
-            if layer_id < crate::MAX_LAYERS {
-                self.current_layer = layer_id;
+            if clipping_id < crate::MAX_LAYERS {
+                self.current_clipping_id = clipping_id as _;
             } else {
                 reprintln!("[WARN] too many clippings! {from:?}, {to:?} is ignored");
             }

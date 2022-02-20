@@ -1,20 +1,19 @@
 struct VertexInput {
-    @location(0) pos:   vec2<f32>;
-    @location(1) color: u32;
-    @location(2) layer: u32;
+    @location(0) pos:         vec3<f32>;
+    @location(1) color:       u32;
+    @location(2) clipping_id: i32;
 };
 
 struct VertexOutput {
     @builtin(position) coords: vec4<f32>;
-    @location(0)       color:  u32;
-    // TODO: this probably can be stored in coords?
-    @location(1)       layer:  u32;
+    @location(0) color:        u32;
+    @location(1) clipping_id:  i32;
 };
 
 let MAX_LAYERS = 8;
 
 struct GlobalsUniform {
-    @location(0) resolution: vec2<f32>;
+    @location(0) resolution:      vec2<f32>;
     @location(1) layer_clippings: array<mat2x2<f32>, MAX_LAYERS>;
 };
 
@@ -22,49 +21,66 @@ struct GlobalsUniform {
 @binding(0)
 var<uniform> globals: GlobalsUniform;
 
+struct InstanceInput {
+    @location(3) center:       vec2<f32>;
+    @location(4) radius:       f32;
+    @location(5) stroke_width: f32;
+    @location(6) fill_color:   u32;
+    @location(7) stroke_color: u32;
+    @location(8) layer:        u32;
+};
+
 @stage(vertex)
 fn vs_main(
     model: VertexInput,
+    // instance: InstanceInput,
 ) -> VertexOutput {
     var out: VertexOutput;
 
     out.color = model.color;
 
     // Scale the positions to [-1, 1]
-    out.coords = vec4<f32>(2.0 * model.pos / globals.resolution - 1.0, 0.0, 1.0);
+    out.coords = vec4<f32>(2.0 * model.pos.xy / globals.resolution - 1.0, model.pos.z, 1.0);
 
-    out.layer = model.layer;
+    out.clipping_id = model.clipping_id;
 
     return out;
 }
 
 @stage(fragment)
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var color: vec4<f32> = vec4<f32>(0.0);
+    var clipped: bool = false;
 
-    // Note to self: at the fragment stage, `position` represents the 2D pixel
-    // position in framebuffer space, which is NOT [-1, 1].
-    var bottom_left: vec2<f32> = vec2<f32>(
-        globals.layer_clippings[in.layer][0].x,
-        // Y-axis is from top to bottom, so the coordinates needs to be flipped.
-        // TODO: probably I can write this more nicely with vector products
-        globals.resolution.y - globals.layer_clippings[in.layer][1].y,
-    );
-    var top_right:   vec2<f32> = vec2<f32>(
-        globals.layer_clippings[in.layer][1].x,
-        globals.resolution.y - globals.layer_clippings[in.layer][0].y,
-    );
+    // If the clipping ID is negative, no clipping
+    if (in.clipping_id < 0) {
+        clipped = true;
+    } else {
+        // Note to self: at the fragment stage, `position` represents the 2D pixel
+        // position in framebuffer space, which is NOT [-1, 1].
+        var bottom_left: vec2<f32> = vec2<f32>(
+            globals.layer_clippings[in.clipping_id][0].x,
+            // Y-axis is from top to bottom, so the coordinates needs to be flipped.
+            // TODO: probably I can write this more nicely with vector products
+            globals.resolution.y - globals.layer_clippings[in.clipping_id][1].y,
+        );
+        var top_right:   vec2<f32> = vec2<f32>(
+            globals.layer_clippings[in.clipping_id][1].x,
+            globals.resolution.y - globals.layer_clippings[in.clipping_id][0].y,
+        );
 
-    // TOOD: Can I do this more nicely with vector products? (c.f. https://math.stackexchange.com/a/190373)
-    if (all((bottom_left <= in.coords.xy) & (in.coords.xy <= top_right))) {
-        // R's color representation is in the order of RGBA, which can be simply
-        // unpacked by unpack4x8unorm().
-        //
-        // https://github.com/wch/r-source/blob/8ebcb33a9f70e729109b1adf60edd5a3b22d3c6f/src/include/R_ext/GraphicsDevice.h#L766-L796
-        // https://www.w3.org/TR/WGSL/#unpack-builtin-functions
-        color = unpack4x8unorm(in.color);
+        // TOOD: Can I do this more nicely with vector products? (c.f.
+        // https://math.stackexchange.com/a/190373)
+        clipped = all((bottom_left <= in.coords.xy) & (in.coords.xy <= top_right));
     }
 
+    if (!clipped) {
+        return vec4<f32>(0.0);
+    }
 
-    return color;
+    // R's color representation is in the order of RGBA, which can be simply
+    // unpacked by unpack4x8unorm().
+    //
+    // https://github.com/wch/r-source/blob/8ebcb33a9f70e729109b1adf60edd5a3b22d3c6f/src/include/R_ext/GraphicsDevice.h#L766-L796
+    // https://www.w3.org/TR/WGSL/#unpack-builtin-functions
+    return unpack4x8unorm(in.color);
 }
