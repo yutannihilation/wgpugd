@@ -422,39 +422,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_color: unsafe { std::mem::transmute(color) },
             z: self.current_layer as f32 / std::u32::MAX as f32,
         });
-
-        // let line_cap = translate_line_cap(gc.lend);
-        // let line_join = translate_line_join(gc.ljoin);
-        // let mitre_limit = gc.lmitre as f32;
-
-        // //
-        // // **** Tessellate fill ***************************
-        // //
-
-        // let fill_options = &FillOptions::tolerance(DEFAULT_TOLERANCE);
-        // self.tesselate_circle_fill(
-        //     lyon::math::point(center.0 as _, center.1 as _),
-        //     r as f32,
-        //     fill_options,
-        //     fill,
-        // );
-
-        // //
-        // // **** Tessellate stroke ***************************
-        // //
-
-        // let stroke_options = &StrokeOptions::tolerance(DEFAULT_TOLERANCE)
-        //     .with_line_width(line_width)
-        //     .with_line_cap(line_cap)
-        //     .with_line_join(line_join)
-        //     .with_miter_limit(mitre_limit);
-
-        // self.tesselate_circle_stroke(
-        //     lyon::math::point(center.0 as _, center.1 as _),
-        //     r as f32,
-        //     stroke_options,
-        //     color,
-        // );
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
