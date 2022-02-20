@@ -56,17 +56,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // width to apply anti-aliase
     let HALF_PIXEL = 0.5;
 
+    var fill_color:   vec4<f32> = unpack4x8unorm(in.fill_color);
+    var stroke_color: vec4<f32> = unpack4x8unorm(in.stroke_color);
+
     var dist_fill         = distance(in.coords.xy, in.center) - in.radius;
     var dist_stroke_inner = distance(in.coords.xy, in.center) - (in.radius - in.stroke_width * 0.5);
     var dist_stroke_outer = distance(in.coords.xy, in.center) - (in.radius + in.stroke_width * 0.5);
 
-
-    var fill_color:   vec4<f32> = unpack4x8unorm(in.fill_color);
-    var stroke_color: vec4<f32> = unpack4x8unorm(in.stroke_color);
-
     // TODO: A poor-man's anti-aliasing. I don't know how to do it correctly atm...
     fill_color.a *= clamp(HALF_PIXEL - dist_fill, 0.0, 1.0);
-    // stroke_color.a *= clamp(dist_stroke_inner + HALF_PIXEL, 0.0, 1.0);
     stroke_color.a *= min(
         clamp(HALF_PIXEL - dist_stroke_outer, 0.0, 1.0),  // if it's inside of the outer boundary
         clamp(dist_stroke_inner + HALF_PIXEL, 0.0, 1.0),  // if it's outside of the inner boundary
