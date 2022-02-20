@@ -46,35 +46,52 @@ impl Vertex {
 // For the sake of performance, we treat circle differently as they can be
 // simply represented by a SDF.
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct SDFVertex {
+    position: [f32; 2],
+}
+
+impl SDFVertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
+
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
 #[rustfmt::skip]
-const RECT_VERTICES: &[Vertex] = &[
-    // color and layer are not used, but fill with 0
-    Vertex { position: [1.0, 0.0, 0.0], color: 0, clipping_id: 0 },
-    Vertex { position: [0.0, 0.0, 0.0], color: 0, clipping_id: 0 },
-    Vertex { position: [0.0, 1.0, 0.0], color: 0, clipping_id: 0 },
-    Vertex { position: [1.0, 1.0, 0.0], color: 0, clipping_id: 0 },
+const RECT_VERTICES: &[SDFVertex] = &[
+    SDFVertex { position: [ 1.0, -1.0] },
+    SDFVertex { position: [-1.0, -1.0] },
+    SDFVertex { position: [-1.0,  1.0] },
+    SDFVertex { position: [ 1.0,  1.0] },
 ];
-const RECT_INDICES: &[u32] = &[0, 1, 2, 0, 2, 3];
+const RECT_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct CircleInstance {
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct SDFInstance {
     center: [f32; 2],
     radius: f32,
     stroke_width: f32,
     fill_color: u32,
     stroke_color: u32,
-    layer: u32,
+    z: f32,
 }
 
-impl CircleInstance {
+impl SDFInstance {
     const ATTRIBS: [wgpu::VertexAttribute; 6] = wgpu::vertex_attr_array![
-        3 => Float32x2,
-        4 => Float32,
-        5 => Float32,
-        6 => Uint32,
-        7 => Uint32,
-        8 => Uint32
+        1 => Float32x2,
+        2 => Float32,
+        3 => Float32,
+        4 => Uint32,
+        5 => Uint32,
+        6 => Float32
     ];
 
     pub(crate) fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -138,7 +155,11 @@ struct WgpuGraphicsDevice {
 
     render_pipeline: wgpu::RenderPipeline,
 
-    circle_instances: Vec<CircleInstance>,
+    sdf_vertex_buffer: wgpu::Buffer,
+    sdf_index_buffer: wgpu::Buffer,
+    sdf_render_pipeline: wgpu::RenderPipeline,
+
+    sdf_instances: Vec<SDFInstance>,
 
     geometry: VertexBuffers<Vertex, u32>,
 
@@ -292,7 +313,6 @@ impl WgpuGraphicsDevice {
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc()],
-                // buffers: &[Vertex::desc(), CircleInstance::desc()],
             },
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
@@ -320,6 +340,60 @@ impl WgpuGraphicsDevice {
             multiview: None,
         });
 
+        let sdf_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("wgpugd vertex buffer"),
+            contents: bytemuck::cast_slice(RECT_VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let sdf_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("wgpugd index buffer"),
+            contents: bytemuck::cast_slice(RECT_INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        let sdf_render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("wgpugd render pipeline layout for SDF shapes"),
+                bind_group_layouts: &[&globals_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+        let sdf_shader =
+            device.create_shader_module(&wgpu::include_wgsl!("shaders/sdf_shape.wgsl"));
+        let sdf_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("wgpugd render pipeline for SDF shapes"),
+            layout: Some(&sdf_render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &sdf_shader,
+                entry_point: "vs_main",
+                buffers: &[SDFVertex::desc(), SDFInstance::desc()],
+            },
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None, // TODO: revert
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 4,
+                ..Default::default()
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &sdf_shader,
+                entry_point: "fs_main",
+                targets: &[wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::all(),
+                }],
+            }),
+            multiview: None,
+        });
+
         let geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
 
         Self {
@@ -334,7 +408,11 @@ impl WgpuGraphicsDevice {
 
             render_pipeline,
 
-            circle_instances: Vec::new(),
+            sdf_vertex_buffer,
+            sdf_index_buffer,
+            sdf_render_pipeline,
+
+            sdf_instances: Vec::new(),
 
             geometry,
 
@@ -375,12 +453,12 @@ impl WgpuGraphicsDevice {
                 usage: wgpu::BufferUsages::INDEX,
             });
 
-        let circle_instance_buffer =
+        let sdf_instance_buffer =
             &self
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("wgpugd instance buffer"),
-                    contents: bytemuck::cast_slice(self.circle_instances.as_slice()),
+                    contents: bytemuck::cast_slice(self.sdf_instances.as_slice()),
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
@@ -429,9 +507,20 @@ impl WgpuGraphicsDevice {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            // render_pass.set_vertex_buffer(1, circle_instance_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..num_indices, 0, 0..1);
+
+            render_pass.set_pipeline(&self.sdf_render_pipeline);
+            render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.sdf_vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, sdf_instance_buffer.slice(..));
+            render_pass
+                .set_index_buffer(self.sdf_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(
+                0..RECT_INDICES.len() as _,
+                0,
+                0..self.sdf_instances.len() as _,
+            );
 
             // Return the ownership. Otherwise the next operation on encoder would fail
             drop(render_pass);

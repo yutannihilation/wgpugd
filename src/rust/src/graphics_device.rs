@@ -413,38 +413,48 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         let color = gc.col;
         let fill = gc.fill;
         let line_width = translate_line_width(gc.lwd);
-        let line_cap = translate_line_cap(gc.lend);
-        let line_join = translate_line_join(gc.ljoin);
-        let mitre_limit = gc.lmitre as f32;
 
-        //
-        // **** Tessellate fill ***************************
-        //
+        self.sdf_instances.push(crate::SDFInstance {
+            center: [center.0 as _, center.1 as _],
+            radius: r as _,
+            stroke_width: line_width,
+            fill_color: unsafe { std::mem::transmute(fill) },
+            stroke_color: unsafe { std::mem::transmute(color) },
+            z: self.current_layer as f32 / std::u32::MAX as f32,
+        });
 
-        let fill_options = &FillOptions::tolerance(DEFAULT_TOLERANCE);
-        self.tesselate_circle_fill(
-            lyon::math::point(center.0 as _, center.1 as _),
-            r as f32,
-            fill_options,
-            fill,
-        );
+        // let line_cap = translate_line_cap(gc.lend);
+        // let line_join = translate_line_join(gc.ljoin);
+        // let mitre_limit = gc.lmitre as f32;
 
-        //
-        // **** Tessellate stroke ***************************
-        //
+        // //
+        // // **** Tessellate fill ***************************
+        // //
 
-        let stroke_options = &StrokeOptions::tolerance(DEFAULT_TOLERANCE)
-            .with_line_width(line_width)
-            .with_line_cap(line_cap)
-            .with_line_join(line_join)
-            .with_miter_limit(mitre_limit);
+        // let fill_options = &FillOptions::tolerance(DEFAULT_TOLERANCE);
+        // self.tesselate_circle_fill(
+        //     lyon::math::point(center.0 as _, center.1 as _),
+        //     r as f32,
+        //     fill_options,
+        //     fill,
+        // );
 
-        self.tesselate_circle_stroke(
-            lyon::math::point(center.0 as _, center.1 as _),
-            r as f32,
-            stroke_options,
-            color,
-        );
+        // //
+        // // **** Tessellate stroke ***************************
+        // //
+
+        // let stroke_options = &StrokeOptions::tolerance(DEFAULT_TOLERANCE)
+        //     .with_line_width(line_width)
+        //     .with_line_cap(line_cap)
+        //     .with_line_join(line_join)
+        //     .with_miter_limit(mitre_limit);
+
+        // self.tesselate_circle_stroke(
+        //     lyon::math::point(center.0 as _, center.1 as _),
+        //     r as f32,
+        //     stroke_options,
+        //     color,
+        // );
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {

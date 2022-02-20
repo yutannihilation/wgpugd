@@ -21,25 +21,15 @@ struct GlobalsUniform {
 @binding(0)
 var<uniform> globals: GlobalsUniform;
 
-struct InstanceInput {
-    @location(3) center:       vec2<f32>;
-    @location(4) radius:       f32;
-    @location(5) stroke_width: f32;
-    @location(6) fill_color:   u32;
-    @location(7) stroke_color: u32;
-    @location(8) layer:        u32;
-};
-
 @stage(vertex)
 fn vs_main(
     model: VertexInput,
-    // instance: InstanceInput,
 ) -> VertexOutput {
     var out: VertexOutput;
 
     out.color = model.color;
 
-    // Scale the positions to [-1, 1]
+    // Scale the X and Y positions from [0, width or height] to [-1, 1]
     out.coords = vec4<f32>(2.0 * model.pos.xy / globals.resolution - 1.0, model.pos.z, 1.0);
 
     out.clipping_id = model.clipping_id;
@@ -48,12 +38,14 @@ fn vs_main(
 }
 
 @stage(fragment)
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var clipped: bool = false;
+fn fs_main(
+    in: VertexOutput
+) -> @location(0) vec4<f32> {
+    var within_clip: bool = false;
 
     // If the clipping ID is negative, no clipping
     if (in.clipping_id < 0) {
-        clipped = true;
+        within_clip = true;
     } else {
         // Note to self: at the fragment stage, `position` represents the 2D pixel
         // position in framebuffer space, which is NOT [-1, 1].
@@ -70,10 +62,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
         // TOOD: Can I do this more nicely with vector products? (c.f.
         // https://math.stackexchange.com/a/190373)
-        clipped = all((bottom_left <= in.coords.xy) & (in.coords.xy <= top_right));
+        within_clip = all((bottom_left <= in.coords.xy) & (in.coords.xy <= top_right));
     }
 
-    if (!clipped) {
+    if (!within_clip) {
         return vec4<f32>(0.0);
     }
 
