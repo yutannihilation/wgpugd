@@ -193,3 +193,28 @@ do_text2 <- function(dev) {
 do_text2(agg)
 do_text2(wgpugd)
 ```
+
+## Order of elements
+
+```{r order, fig.show='hold', out.width='50%'}
+do_order <- function(dev) {
+  filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
+  dev(filename = filename)
+
+  col <- scales::alpha("red", 0.7)
+  grid::grid.circle(x = 0.2, r = 0.2, gp = grid::gpar(col = col, fill = "blue", lwd = 40))
+  grid::grid.lines(y = 0.55, gp = grid::gpar(col = "#00000088", lwd = 50))
+  grid::grid.rect(width = 0.4, height = 0.4, gp = grid::gpar(fill = "pink"))
+  grid::grid.lines(y = 0.45, gp = grid::gpar(col = "#00000088", lwd = 60))
+  grid::grid.circle(x = 0.8, r = 0.2, gp = grid::gpar(fill = "lightgreen", lwd = 40))
+  grid::grid.lines(y = 0.35, gp = grid::gpar(col = "#00000088", lwd = 60))
+
+  dev.off()
+  
+  knitr::include_graphics(filename)
+}
+
+do_order(agg)
+do_order(wgpugd)
+```
+
