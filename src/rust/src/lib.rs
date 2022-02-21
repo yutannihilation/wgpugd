@@ -166,6 +166,10 @@ struct WgpuGraphicsDevice {
     // For MSAA
     multisampled_framebuffer: wgpu::TextureView,
 
+    // depth texture
+    depth_texture_view: wgpu::TextureView,
+    depth_texture_sampler: wgpu::Sampler,
+
     layer_clippings: LayerClippings,
     current_clipping_id: i32,
 
@@ -298,6 +302,33 @@ impl WgpuGraphicsDevice {
             })
             .create_view(&wgpu::TextureViewDescriptor::default());
 
+        let depth_texture_view = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("wgpugd depth texture"),
+                size: texture_extent,
+                mip_level_count: 1,
+                sample_count: 4,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::TEXTURE_BINDING,
+            })
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let depth_texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("wgpugd depth texture sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            compare: Some(wgpu::CompareFunction::LessEqual),
+            // TODO: what value is appropriate?
+            lod_min_clamp: -100.0,
+            lod_max_clamp: 100.0,
+            ..Default::default()
+        });
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("wgpugd render pipeline layout"),
@@ -323,7 +354,13 @@ impl WgpuGraphicsDevice {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState {
                 count: 4,
                 ..Default::default()
@@ -377,8 +414,17 @@ impl WgpuGraphicsDevice {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState {
+                // Technically, this doesn't need to be multisampled, as the SDF
+                // shapes are out of scope of MSAA anyway, but as we share the
+                // one renderpipline, the sample count must match the others.
                 count: 4,
                 ..Default::default()
             },
@@ -417,6 +463,9 @@ impl WgpuGraphicsDevice {
             geometry,
 
             multisampled_framebuffer,
+
+            depth_texture_view,
+            depth_texture_sampler,
 
             layer_clippings: LayerClippings::new(),
             current_clipping_id: -1,
@@ -498,10 +547,14 @@ impl WgpuGraphicsDevice {
                         store: false,
                     },
                 }],
-                // Since wgpugd is a 2D graphics device, we don't need the depth
-                // buffers. However, stencil buffers might be used for masking
-                // and clipping features. I don't figure out yet...
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
