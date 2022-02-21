@@ -48,9 +48,9 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
 name = "ash"
-version = "0.35.1+1.2.203"
+version = "0.35.2+1.2.203"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7fd04def1c9101b5fb488c131022d2d6f87753ef4b1b11b279e2af404fae6b9"
+checksum = "8f6a491bcad4563b355ac2bb6e3f09d5e1c5d628710c7156e901dad0c416075e"
 dependencies = [
  "libloading",
 ]
@@ -122,9 +122,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "cc"
-version = "1.0.72"
+version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22a9137b95ea06864e018375b72adfb7db6e6f68cfc8df5a04d00288050485ee"
+checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
 
 [[package]]
 name = "cfg-if"
@@ -445,16 +445,16 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "libR-sys"
 version = "0.2.2"
-source = "git+https://github.com/extendr/libR-sys#355cf0de0dd7f28cfa3933a70b29deb247eb2017"
+source = "git+https://github.com/extendr/libR-sys#34e724ef7ebfcce41878a2b2eba476e35046ce51"
 dependencies = [
  "winapi",
 ]
 
 [[package]]
 name = "libc"
-version = "0.2.117"
+version = "0.2.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e74d72e0f9b65b5b4ca49a346af3976df0f9c61d550727f349ecd559f251a26c"
+checksum = "1bf2e165bb3457c8e098ea76f3e3bc9db55f87aa90d52d0e6be741470916aaa4"
 
 [[package]]
 name = "libloading"
@@ -561,7 +561,7 @@ dependencies = [
 [[package]]
 name = "metal"
 version = "0.23.1"
-source = "git+https://github.com/gfx-rs/metal-rs?rev=140c8f4#140c8f4e39001ae154f153ffc767da6c0c9d7f06"
+source = "git+https://github.com/gfx-rs/metal-rs?rev=44af5cc#44af5cca340617d42d701264f9bf71d1f3e68096"
 dependencies = [
  "bitflags",
  "block",
@@ -958,7 +958,7 @@ dependencies = [
 [[package]]
 name = "wgpu"
 version = "0.12.0"
-source = "git+https://github.com/gfx-rs/wgpu/#046f008cc017e14d01b55b74fc4d9102a6587695"
+source = "git+https://github.com/gfx-rs/wgpu/#01628a1fad05708ebc3d5e701736915b39ad37ae"
 dependencies = [
  "arrayvec 0.7.2",
  "js-sys",
@@ -978,7 +978,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "0.12.0"
-source = "git+https://github.com/gfx-rs/wgpu/#046f008cc017e14d01b55b74fc4d9102a6587695"
+source = "git+https://github.com/gfx-rs/wgpu/#01628a1fad05708ebc3d5e701736915b39ad37ae"
 dependencies = [
  "arrayvec 0.7.2",
  "bitflags",
@@ -1000,7 +1000,7 @@ dependencies = [
 [[package]]
 name = "wgpu-hal"
 version = "0.12.0"
-source = "git+https://github.com/gfx-rs/wgpu/#046f008cc017e14d01b55b74fc4d9102a6587695"
+source = "git+https://github.com/gfx-rs/wgpu/#01628a1fad05708ebc3d5e701736915b39ad37ae"
 dependencies = [
  "arrayvec 0.7.2",
  "ash",
@@ -1037,7 +1037,7 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "0.12.0"
-source = "git+https://github.com/gfx-rs/wgpu/#046f008cc017e14d01b55b74fc4d9102a6587695"
+source = "git+https://github.com/gfx-rs/wgpu/#01628a1fad05708ebc3d5e701736915b39ad37ae"
 dependencies = [
  "bitflags",
 ]
