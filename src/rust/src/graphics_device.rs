@@ -42,11 +42,7 @@ impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
         let position = self.transform.transform_point2(position_orig.into());
 
         crate::Vertex {
-            position: [
-                position[0],
-                position[1],
-                self.layer as f32 / std::u32::MAX as f32,
-            ],
+            position: [position[0], position[1], 1.0 - self.layer as f32 / 100000.0],
             color: self.color,
             clipping_id: self.clipping_id,
         }
@@ -59,11 +55,7 @@ impl FillVertexConstructor<crate::Vertex> for VertexCtor {
         let position = self.transform.transform_point2(position_orig.into());
 
         crate::Vertex {
-            position: [
-                position[0],
-                position[1],
-                self.layer as f32 / std::u32::MAX as f32,
-            ],
+            position: [position[0], position[1], 1.0 - self.layer as f32 / 100000.0],
             color: self.color,
             clipping_id: self.clipping_id,
         }
@@ -136,66 +128,6 @@ impl crate::WgpuGraphicsDevice {
         fill_tess
             .tessellate_path(
                 path,
-                fill_options,
-                &mut BuffersBuilder::new(&mut self.geometry, ctxt),
-            )
-            .unwrap();
-    }
-
-    fn tesselate_circle_stroke(
-        &mut self,
-        center: lyon::math::Point,
-        r: f32,
-        stroke_options: &StrokeOptions,
-        color: i32,
-    ) {
-        if color.is_na() {
-            return;
-        }
-
-        let mut stroke_tess = StrokeTessellator::new();
-
-        let ctxt = VertexCtor::new(
-            color,
-            self.current_clipping_id,
-            self.current_layer as _,
-            glam::Affine2::IDENTITY,
-        );
-
-        stroke_tess
-            .tessellate_circle(
-                center,
-                r,
-                stroke_options,
-                &mut BuffersBuilder::new(&mut self.geometry, ctxt),
-            )
-            .unwrap();
-    }
-
-    fn tesselate_circle_fill(
-        &mut self,
-        center: lyon::math::Point,
-        r: f32,
-        fill_options: &FillOptions,
-        color: i32,
-    ) {
-        if color.is_na() {
-            return;
-        }
-
-        let mut fill_tess = FillTessellator::new();
-
-        let ctxt = VertexCtor::new(
-            color,
-            self.current_clipping_id,
-            self.current_layer as _,
-            glam::Affine2::IDENTITY,
-        );
-
-        fill_tess
-            .tessellate_circle(
-                center,
-                r,
                 fill_options,
                 &mut BuffersBuilder::new(&mut self.geometry, ctxt),
             )
@@ -410,6 +342,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
+        self.current_layer += 1;
+
         let color = gc.col;
         let fill = gc.fill;
         let line_width = translate_line_width(gc.lwd);
@@ -420,8 +354,10 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_width: line_width,
             fill_color: unsafe { std::mem::transmute(fill) },
             stroke_color: unsafe { std::mem::transmute(color) },
-            z: self.current_layer as f32 / std::u32::MAX as f32,
+            z: 1.0 - self.current_layer as f32 / 100000.0,
         });
+
+        self.current_layer += 1;
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
