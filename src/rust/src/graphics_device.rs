@@ -19,7 +19,7 @@ use crate::text::FONTDB;
 pub(crate) const DEFAULT_TOLERANCE: f32 = lyon::tessellation::FillOptions::DEFAULT_TOLERANCE;
 
 // TODO: why can't we use std::u32::MAX...?
-const MAX_LAYERS: f32 = std::u32::MAX as f32 / 256.0;
+const LAYER_FACTOR: f32 = 256.0 / std::u32::MAX as f32;
 
 struct VertexCtor {
     color: u32,
@@ -48,7 +48,7 @@ impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
             position: [
                 position[0],
                 position[1],
-                1.0 - self.layer as f32 / MAX_LAYERS,
+                1.0 - self.layer as f32 * LAYER_FACTOR,
             ],
             color: self.color,
             clipping_id: self.clipping_id,
@@ -65,7 +65,7 @@ impl FillVertexConstructor<crate::Vertex> for VertexCtor {
             position: [
                 position[0],
                 position[1],
-                1.0 - self.layer as f32 / MAX_LAYERS,
+                1.0 - self.layer as f32 * LAYER_FACTOR,
             ],
             color: self.color,
             clipping_id: self.clipping_id,
@@ -371,7 +371,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_width: line_width,
             fill_color: unsafe { std::mem::transmute(fill) },
             stroke_color: unsafe { std::mem::transmute(color) },
-            z: 1.0 - self.current_layer as f32 / MAX_LAYERS,
+            z: 1.0 - self.current_layer as f32 * LAYER_FACTOR,
         });
     }
 
@@ -551,7 +551,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         } else {
             let clipping_id = self.layer_clippings.add_clipping(from, to);
 
-            if clipping_id < crate::MAX_LAYERS {
+            if clipping_id < crate::MAX_CLIPPINGS {
                 self.current_clipping_id = clipping_id as _;
             } else {
                 reprintln!("[WARN] too many clippings! {from:?}, {to:?} is ignored");

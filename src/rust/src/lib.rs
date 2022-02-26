@@ -16,7 +16,7 @@ use lyon::lyon_tessellation::VertexBuffers;
 use wgpu::util::DeviceExt;
 
 // This should match with shaders.wgsl
-const MAX_LAYERS: usize = 8;
+const MAX_CLIPPINGS: usize = 64;
 
 // For general shapes --------------------------------------------
 
@@ -107,7 +107,7 @@ impl SDFInstance {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Globals {
     resolution: [f32; 2],
-    layer_clippings: [[[f32; 2]; 2]; MAX_LAYERS],
+    layer_clippings: [[[f32; 2]; 2]; MAX_CLIPPINGS],
 }
 
 struct LayerClippings {
@@ -128,10 +128,10 @@ impl LayerClippings {
         self.clippings.len() - 1
     }
 
-    fn to_array(&self) -> [[[f32; 2]; 2]; MAX_LAYERS] {
-        let mut clippings = [Self::NO_CLIPPING; MAX_LAYERS];
+    fn to_array(&self) -> [[[f32; 2]; 2]; MAX_CLIPPINGS] {
+        let mut clippings = [Self::NO_CLIPPING; MAX_CLIPPINGS];
 
-        for (i, c) in self.clippings.iter().take(MAX_LAYERS).enumerate() {
+        for (i, c) in self.clippings.iter().take(MAX_CLIPPINGS).enumerate() {
             // layer 0 is reserved for no clipping
             clippings[i + 1] = *c;
         }

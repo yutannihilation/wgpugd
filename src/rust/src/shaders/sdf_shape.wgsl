@@ -12,12 +12,12 @@ struct VertexOutput {
     
 };
 
-let MAX_LAYERS = 8;
+let MAX_CLIPPINGS = 64;
 
 
 struct GlobalsUniform {
     @location(0) resolution:      vec2<f32>;
-    @location(1) layer_clippings: array<mat2x2<f32>, MAX_LAYERS>;
+    @location(1) layer_clippings: array<mat2x2<f32>, MAX_CLIPPINGS>;
 };
 
 @group(0)
