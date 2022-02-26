@@ -274,6 +274,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::Device;
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        self.current_layer += 1;
+
         let color = gc.col;
         let line_width = translate_line_width(gc.lwd);
         let line_cap = translate_line_cap(gc.lend);
@@ -298,6 +300,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        self.current_layer += 1;
+
         let color = gc.col;
         let line_width = translate_line_width(gc.lwd);
         let line_cap = translate_line_cap(gc.lend);
@@ -322,6 +326,8 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        self.current_layer += 1;
+
         let color = gc.col;
         let fill = gc.fill;
         let line_width = translate_line_width(gc.lwd);
@@ -356,11 +362,11 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_color: unsafe { std::mem::transmute(color) },
             z: 1.0 - self.current_layer as f32 / 100000.0,
         });
-
-        self.current_layer += 1;
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        self.current_layer += 1;
+
         let color = gc.col;
         let fill = gc.fill;
         let line_width = translate_line_width(gc.lwd);
