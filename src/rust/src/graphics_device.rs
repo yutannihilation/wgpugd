@@ -202,6 +202,7 @@ impl crate::WgpuGraphicsDevice {
     }
 
     // This handles polygon(), polyline(), and line().
+    #[allow(clippy::too_many_arguments)]
     fn polygon_inner<T: IntoIterator<Item = (f64, f64)>>(
         &mut self,
         coords: T,

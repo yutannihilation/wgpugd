@@ -1,5 +1,6 @@
 mod file;
 mod graphics_device;
+mod render_pipeline;
 mod text;
 
 use crate::file::FilenameTemplate;
@@ -13,6 +14,7 @@ use extendr_api::{
 };
 
 use lyon::lyon_tessellation::VertexBuffers;
+use render_pipeline::create_render_pipeline;
 use wgpu::util::DeviceExt;
 
 // This should match with shaders.wgsl
@@ -329,53 +331,16 @@ impl WgpuGraphicsDevice {
             ..Default::default()
         });
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("wgpugd render pipeline layout"),
-                bind_group_layouts: &[&globals_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let shader = device.create_shader_module(&wgpu::include_wgsl!("shaders/shader.wgsl"));
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("wgpugd render pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[Vertex::desc()],
-            },
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None, // TODO: revert
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 4,
-                ..Default::default()
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::all(),
-                }],
-            }),
-            multiview: None,
-        });
+        let render_pipeline = create_render_pipeline(
+            &device,
+            "wgpugd render pipeline layout",
+            "wgpugd render pipeline",
+            &[&globals_bind_group_layout],
+            &wgpu::include_wgsl!("shaders/shader.wgsl"),
+            &[Vertex::desc()],
+            wgpu::TextureFormat::Depth32Float,
+            4,
+        );
 
         let sdf_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("wgpugd vertex buffer"),
@@ -389,56 +354,19 @@ impl WgpuGraphicsDevice {
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        let sdf_render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("wgpugd render pipeline layout for SDF shapes"),
-                bind_group_layouts: &[&globals_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-        let sdf_shader =
-            device.create_shader_module(&wgpu::include_wgsl!("shaders/sdf_shape.wgsl"));
-        let sdf_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("wgpugd render pipeline for SDF shapes"),
-            layout: Some(&sdf_render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &sdf_shader,
-                entry_point: "vs_main",
-                buffers: &[SDFVertex::desc(), SDFInstance::desc()],
-            },
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None, // TODO: revert
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                // Technically, this doesn't need to be multisampled, as the SDF
-                // shapes are out of scope of MSAA anyway, but as we share the
-                // one renderpipline, the sample count must match the others.
-                count: 4,
-                ..Default::default()
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &sdf_shader,
-                entry_point: "fs_main",
-                targets: &[wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::all(),
-                }],
-            }),
-            multiview: None,
-        });
+        let sdf_render_pipeline = create_render_pipeline(
+            &device,
+            "wgpugd render pipeline layout for SDF shapes",
+            "wgpugd render pipeline for SDF shapes",
+            &[&globals_bind_group_layout],
+            &wgpu::include_wgsl!("shaders/sdf_shape.wgsl"),
+            &[SDFVertex::desc(), SDFInstance::desc()],
+            wgpu::TextureFormat::Depth32Float,
+            // Technically, this doesn't need to be multisampled, as the SDF
+            // shapes are out of scope of MSAA anyway, but as we share the
+            // one renderpipline, the sample count must match the others.
+            4,
+        );
 
         let geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
 
