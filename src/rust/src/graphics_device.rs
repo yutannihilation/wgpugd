@@ -18,6 +18,9 @@ use crate::text::FONTDB;
 // TODO: determine tolerance nicely
 pub(crate) const DEFAULT_TOLERANCE: f32 = lyon::tessellation::FillOptions::DEFAULT_TOLERANCE;
 
+// TODO: why can't we use std::u32::MAX...?
+const MAX_LAYERS: f32 = std::u32::MAX as f32 / 256.0;
+
 struct VertexCtor {
     color: u32,
     clipping_id: i32,
@@ -42,7 +45,11 @@ impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
         let position = self.transform.transform_point2(position_orig.into());
 
         crate::Vertex {
-            position: [position[0], position[1], 1.0 - self.layer as f32 / 100000.0],
+            position: [
+                position[0],
+                position[1],
+                1.0 - self.layer as f32 / MAX_LAYERS,
+            ],
             color: self.color,
             clipping_id: self.clipping_id,
         }
@@ -55,7 +62,11 @@ impl FillVertexConstructor<crate::Vertex> for VertexCtor {
         let position = self.transform.transform_point2(position_orig.into());
 
         crate::Vertex {
-            position: [position[0], position[1], 1.0 - self.layer as f32 / 100000.0],
+            position: [
+                position[0],
+                position[1],
+                1.0 - self.layer as f32 / MAX_LAYERS,
+            ],
             color: self.color,
             clipping_id: self.clipping_id,
         }
@@ -360,7 +371,7 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_width: line_width,
             fill_color: unsafe { std::mem::transmute(fill) },
             stroke_color: unsafe { std::mem::transmute(color) },
-            z: 1.0 - self.current_layer as f32 / 100000.0,
+            z: 1.0 - self.current_layer as f32 / MAX_LAYERS,
         });
     }
 
