@@ -39,7 +39,7 @@ Yes! [extendr](https://extendr.github.io/) is the Rust framework for interacting
 
 ### Why WebGPU for R?
 
-The main motivation is to add post-effect to graphics with [WebGPU Shader Language (WGSL)](https://www.w3.org/TR/WGSL/>).
+The main motivation is to add post-effect to graphics with [WebGPU Shader Language (WGSL)](https://www.w3.org/TR/WGSL/).
 But, of course, the power of GPU should simply contribute to high performance!
 
 ## Installation
