@@ -29,7 +29,7 @@ interacting with R.
 ### Why WebGPU for R?
 
 The main motivation is to add post-effect to graphics with [WebGPU
-Shader Language (WGSL)](https://www.w3.org/TR/WGSL/%3E). But, of course,
+Shader Language (WGSL)](https://www.w3.org/TR/WGSL/). But, of course,
 the power of GPU should simply contribute to high performance!
 
 ## Installation
