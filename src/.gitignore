@@ -2,3 +2,5 @@
 *.so
 *.dll
 target
+
+/rust/.vscode/settings.json

@@ -230,7 +230,7 @@ dependencies = [
 [[package]]
 name = "extendr-api"
 version = "0.2.0"
-source = "git+https://github.com/yutannihilation/extendr?branch=feature/graphics-feature-gate#76209525cf1b8065c2f41179affedf1231d031b6"
+source = "git+https://github.com/extendr/extendr#66149191b8e7e5ab54b4c42470ee81aae7704345"
 dependencies = [
  "extendr-engine",
  "extendr-macros",
@@ -243,7 +243,7 @@ dependencies = [
 [[package]]
 name = "extendr-engine"
 version = "0.2.0"
-source = "git+https://github.com/yutannihilation/extendr?branch=feature/graphics-feature-gate#76209525cf1b8065c2f41179affedf1231d031b6"
+source = "git+https://github.com/extendr/extendr#66149191b8e7e5ab54b4c42470ee81aae7704345"
 dependencies = [
  "libR-sys",
 ]
@@ -251,7 +251,7 @@ dependencies = [
 [[package]]
 name = "extendr-macros"
 version = "0.2.0"
-source = "git+https://github.com/yutannihilation/extendr?branch=feature/graphics-feature-gate#76209525cf1b8065c2f41179affedf1231d031b6"
+source = "git+https://github.com/extendr/extendr#66149191b8e7e5ab54b4c42470ee81aae7704345"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -445,7 +445,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "libR-sys"
 version = "0.2.2"
-source = "git+https://github.com/extendr/libR-sys#34e724ef7ebfcce41878a2b2eba476e35046ce51"
+source = "git+https://github.com/extendr/libR-sys#0fe4143ad8d4e4cb42205a627088dbd1a64df3c7"
 dependencies = [
  "winapi",
 ]

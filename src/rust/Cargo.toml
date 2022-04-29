@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["staticlib"]
 
 [dependencies]
-extendr-api = { git = "https://github.com/yutannihilation/extendr", branch = "feature/graphics-feature-gate", features = ["graphics"] }
+extendr-api = { git = "https://github.com/extendr/extendr", features = ["graphics"] }
 
 wgpu = { git = "https://github.com/gfx-rs/wgpu/" }
 # bytemuck converts Rust data into Plain Old Data, which can be passed to WebGPU
