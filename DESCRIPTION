@@ -21,4 +21,5 @@ RoxygenNote: 7.1.2
 Suggests: 
     rmarkdown
 Config/Needs/website:
-    ragg
+    ragg,
+    ggplot2
