@@ -13,7 +13,10 @@ knitr::opts_chunk$set(
 
 ### Just open and close the device
 
-```{r bench1}
+```{r}
+#| label: bench1
+#| eval: false
+
 library(ggplot2)
 
 file <- tempfile(fileext = '.png')
@@ -38,7 +41,9 @@ autoplot(res)
 
 ### Actual protting
 
-```{r bench2}
+```{r}
+#| label: bench2
+#| eval: false
 set.seed(10)
 dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 
