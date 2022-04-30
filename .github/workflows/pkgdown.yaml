@@ -29,6 +29,21 @@ jobs:
           toolchain: stable
           default: true
 
+      # This setting comes from https://github.com/gfx-rs/wgpu/blob/ebca3298f01ea72f80aeac4ab1be889469f9c699/.github/workflows/ci.yml#L155-L168
+      - name: install Vulkan sdk
+        run: |
+          sudo apt-get update -y -qq
+
+          # llvmpipe/lavapipe
+          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+
+          # vulkan sdk
+          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+
+          sudo apt-get update
+          sudo apt install -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers vulkan-sdk
+
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
