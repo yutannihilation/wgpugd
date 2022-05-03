@@ -109,6 +109,7 @@ impl SDFInstance {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Globals {
     resolution: [f32; 2],
+    _padding: [f32; 2], // TODO: this is needed for aligning to 16 bit
     layer_clippings: [[[f32; 2]; 2]; MAX_CLIPPINGS],
 }
 
@@ -444,6 +445,7 @@ impl WgpuGraphicsDevice {
             0,
             bytemuck::cast_slice(&[Globals {
                 resolution: [self.width as _, self.height as _],
+                _padding: [0., 0.],
                 layer_clippings: self.layer_clippings.to_array(),
             }]),
         );
