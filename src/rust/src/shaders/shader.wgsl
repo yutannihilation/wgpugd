@@ -75,5 +75,7 @@ fn fs_main(
     //
     // https://github.com/wch/r-source/blob/8ebcb33a9f70e729109b1adf60edd5a3b22d3c6f/src/include/R_ext/GraphicsDevice.h#L766-L796
     // https://www.w3.org/TR/WGSL/#unpack-builtin-functions
-    return unpack4x8unorm(vs_out.color);
+    var color: vec4<f32> = unpack4x8unorm(vs_out.color);
+    // return the alpha-premultiplied version of value
+    return vec4<f32>(color.rgb * color.a, color.a);
 }

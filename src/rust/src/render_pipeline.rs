@@ -49,7 +49,7 @@ pub(crate) fn create_render_pipeline(
             entry_point: "fs_main",
             targets: &[wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Rgba8Unorm,
-                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::all(),
             }],
         }),

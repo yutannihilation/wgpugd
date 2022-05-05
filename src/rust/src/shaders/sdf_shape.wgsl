@@ -77,8 +77,8 @@ fn fs_main(vs_out: VertexOutput) -> @location(0) vec4<f32> {
         return vec4<f32>(0.0);
     } else {
         return vec4<f32>(
-            (stroke_color.rgb * stroke_color.a + 
-                fill_color.rgb * fill_color.a * (1.0 - stroke_color.a)) / out_a,
+            // return the alpha-premultiplied values, so don't devide by out_a here.
+            stroke_color.rgb * stroke_color.a + fill_color.rgb * fill_color.a * (1.0 - stroke_color.a),
             out_a
         );
     }

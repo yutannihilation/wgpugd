@@ -87,7 +87,7 @@ do_rect(wgpugd)
 
 From `?grid.polygon`
 
-```{r polygon}
+```{r polygon, fig.show='hold', out.width='50%'}
 do_polygon <- function(dev) {
   filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
   dev(filename = filename)
@@ -201,6 +201,26 @@ do_order <- function(dev) {
   filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
   dev(filename = filename)
 
+  grid::grid.circle(x = 0.3, r = 0.3, gp = grid::gpar(col = "transparent", fill = "#FF000080"))
+  grid::grid.circle(x = 0.7, r = 0.3, gp = grid::gpar(col = "transparent", fill = "#00FF0080"))
+  grid::grid.lines(y = 0.5,  gp = grid::gpar(col = "#FFFF0080", lwd = 60))
+  grid::grid.circle(y = 0.7, r = 0.3, gp = grid::gpar(col = "transparent", fill = "#0000FF80"))
+  grid::grid.lines(x = 0.8,  gp = grid::gpar(col = "#FF00FF80", lwd = 60))
+  
+  dev.off()
+  
+  knitr::include_graphics(filename)
+}
+
+do_order(agg)
+do_order(wgpugd)
+```
+
+```{r order2, fig.show='hold', out.width='50%'}
+do_order2 <- function(dev) {
+  filename <- knitr::fig_path(paste0(deparse(substitute(dev)), ".png"))
+  dev(filename = filename)
+
   col <- scales::alpha("red", 0.7)
   grid::grid.circle(x = 0.2, r = 0.2, gp = grid::gpar(col = col, fill = "blue", lwd = 40))
   grid::grid.lines(y = 0.55, gp = grid::gpar(col = "#00000088", lwd = 50))
@@ -214,7 +234,6 @@ do_order <- function(dev) {
   knitr::include_graphics(filename)
 }
 
-do_order(agg)
-do_order(wgpugd)
+do_order2(agg)
+do_order2(wgpugd)
 ```
-
