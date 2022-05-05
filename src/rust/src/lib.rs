@@ -481,7 +481,8 @@ impl WgpuGraphicsDevice {
                     view: &self.depth_texture_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
+                        // We don't use depth buffer among layers
+                        store: false,
                     }),
                     stencil_ops: None,
                 }),

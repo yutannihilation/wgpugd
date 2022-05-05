@@ -35,7 +35,7 @@ pub(crate) fn create_render_pipeline(
         },
         depth_stencil: Some(wgpu::DepthStencilState {
             format: depth_format,
-            depth_write_enabled: true,
+            depth_write_enabled: false,
             depth_compare: wgpu::CompareFunction::Less,
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
