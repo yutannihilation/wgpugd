@@ -29,9 +29,11 @@ impl FontDBWrapper {
         }) {
             Some(id)
         } else {
-            reprintln!(
-                "[WARN] Cannot find the specified font family, falling back to the default font..."
-            );
+            // TODO: This warning is shown too many times, so disabled temporarily...
+            //
+            // reprintln!(
+            //     "[WARN] Cannot find the specified font family, falling back to the default font..."
+            // );
             self.fallback_glyph_id
         }
     }
