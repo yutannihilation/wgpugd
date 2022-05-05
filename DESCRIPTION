@@ -22,4 +22,6 @@ Suggests:
     rmarkdown
 Config/Needs/website:
     ragg,
-    ggplot2
+    ggplot2,
+    bench,
+    ggbeeswarm
