@@ -409,7 +409,6 @@ impl WgpuGraphicsDevice {
             0,
             bytemuck::cast_slice(&[Globals {
                 resolution: [self.width as _, self.height as _],
-                _padding: [0., 0.],
             }]),
         );
 
