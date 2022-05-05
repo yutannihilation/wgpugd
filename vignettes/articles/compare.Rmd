@@ -7,7 +7,8 @@ resource_files:
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  base.url = "/wgpugd/"
 )
 ```
 
@@ -19,6 +20,13 @@ agg <- function(...) {
   agg_png(width = 7, height = 7, units = "in", ...)
 }
 ```
+
+## Debug
+
+```{r}
+knitr::fig_path()
+```
+
 
 ## Line
 
