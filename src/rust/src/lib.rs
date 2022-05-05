@@ -141,10 +141,6 @@ struct WgpuGraphicsDevice {
     // For MSAA
     multisampled_framebuffer: wgpu::TextureView,
 
-    // depth texture
-    depth_texture_view: wgpu::TextureView,
-    depth_texture_sampler: wgpu::Sampler,
-
     // On clipping or instanced rendering layer, increment this layer id
     current_command: Option<WgpugdCommand>,
     command_queue: Vec<WgpugdCommand>,
@@ -275,33 +271,6 @@ impl WgpuGraphicsDevice {
             })
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let depth_texture_view = device
-            .create_texture(&wgpu::TextureDescriptor {
-                label: Some("wgpugd depth texture"),
-                size: texture_extent,
-                mip_level_count: 1,
-                sample_count: 4,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                    | wgpu::TextureUsages::TEXTURE_BINDING,
-            })
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let depth_texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("wgpugd depth texture sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            // TODO: what value is appropriate?
-            lod_min_clamp: -100.0,
-            lod_max_clamp: 100.0,
-            ..Default::default()
-        });
-
         let render_pipeline = create_render_pipeline(
             &device,
             "wgpugd render pipeline layout",
@@ -309,7 +278,6 @@ impl WgpuGraphicsDevice {
             &[&globals_bind_group_layout],
             &wgpu::include_wgsl!("shaders/shader.wgsl"),
             &[Vertex::desc()],
-            wgpu::TextureFormat::Depth32Float,
             4,
         );
 
@@ -346,7 +314,6 @@ impl WgpuGraphicsDevice {
             &[&globals_bind_group_layout],
             &wgpu::include_wgsl!("shaders/sdf_shape.wgsl"),
             &[SDFVertex::desc(), SDFInstance::desc()],
-            wgpu::TextureFormat::Depth32Float,
             // Technically, this doesn't need to be multisampled, as the SDF
             // shapes are out of scope of MSAA anyway, but as we share the
             // one renderpipline, the sample count must match the others.
@@ -379,9 +346,6 @@ impl WgpuGraphicsDevice {
             geometry,
 
             multisampled_framebuffer,
-
-            depth_texture_view,
-            depth_texture_sampler,
 
             current_command: None,
             command_queue: Vec::new(),
@@ -459,21 +423,13 @@ impl WgpuGraphicsDevice {
                         store: false,
                     },
                 }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        // We don't use depth buffer among layers
-                        store: false,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: None,
             });
 
             let mut begin_id_polygon = 0_u32;
-            let mut last_id_polygon = 0_u32;
+            let mut last_id_polygon;
             let mut begin_id_sdf = 0_u32;
-            let mut last_id_sdf = 0_u32;
+            let mut last_id_sdf;
 
             for cmd in self.command_queue.iter() {
                 match cmd {

@@ -6,7 +6,6 @@ pub(crate) fn create_render_pipeline(
     bind_group_layouts: &[&wgpu::BindGroupLayout],
     shader_desc: &wgpu::ShaderModuleDescriptor,
     vertex_buffer_layouts: &[wgpu::VertexBufferLayout],
-    depth_format: wgpu::TextureFormat,
     sample_count: u32,
 ) -> wgpu::RenderPipeline {
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -33,13 +32,7 @@ pub(crate) fn create_render_pipeline(
             polygon_mode: wgpu::PolygonMode::Fill,
             conservative: false,
         },
-        depth_stencil: Some(wgpu::DepthStencilState {
-            format: depth_format,
-            depth_write_enabled: false,
-            depth_compare: wgpu::CompareFunction::Less,
-            stencil: wgpu::StencilState::default(),
-            bias: wgpu::DepthBiasState::default(),
-        }),
+        depth_stencil: None,
         multisample: wgpu::MultisampleState {
             count: sample_count,
             ..Default::default()
