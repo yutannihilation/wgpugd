@@ -1,14 +1,11 @@
 ---
 title: "Comparison with other graphics device"
-resource_files:
-  - figure
 ---
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>",
-  base.url = "/wgpugd/"
+  comment = "#>"
 )
 ```
 
