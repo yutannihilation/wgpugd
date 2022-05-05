@@ -4,6 +4,7 @@ mod render_pipeline;
 mod text;
 
 use crate::file::FilenameTemplate;
+use crate::graphics_device::WgpugdCommand;
 
 use std::io::Write;
 use std::{fs::File, path::PathBuf};
@@ -140,6 +141,8 @@ struct WgpuGraphicsDevice {
 
     // On clipping or instanced rendering layer, increment this layer id
     current_layer: usize,
+    current_command: Option<WgpugdCommand>,
+    command_queue: Vec<WgpugdCommand>,
 
     // width and height in point
     width: u32,
@@ -359,6 +362,8 @@ impl WgpuGraphicsDevice {
             depth_texture_sampler,
 
             current_layer: 0,
+            current_command: None,
+            command_queue: Vec::new(),
 
             width,
             height,
@@ -374,6 +379,11 @@ impl WgpuGraphicsDevice {
     }
 
     fn render(&mut self) -> extendr_api::Result<()> {
+        // TODO: do this more nicely...
+        if let Some(ref cmd) = self.current_command {
+            self.command_queue.push(cmd.clone());
+        }
+
         let vertex_buffer = &self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -407,8 +417,6 @@ impl WgpuGraphicsDevice {
                 _padding: [0., 0.],
             }]),
         );
-
-        let num_indices = self.geometry.indices.len() as u32;
 
         let texture_view = self
             .texture
@@ -446,26 +454,50 @@ impl WgpuGraphicsDevice {
                 }),
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..num_indices, 0, 0..1);
+            let mut begin_id_polygon = 0_u32;
+            let mut last_id_polygon = 0_u32;
+            let mut begin_id_sdf = 0_u32;
+            let mut last_id_sdf = 0_u32;
+
+            for cmd in self.command_queue.iter() {
+                match cmd {
+                    WgpugdCommand::DrawPolygon(cmd) => {
+                        last_id_polygon = begin_id_polygon + cmd.count;
+
+                        render_pass.set_pipeline(&self.render_pipeline);
+                        render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
+                        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                        render_pass
+                            .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                        render_pass.draw_indexed(begin_id_polygon..last_id_polygon, 0, 0..1);
+
+                        begin_id_polygon = last_id_polygon;
+                    }
+                    WgpugdCommand::DrawSDF(cmd) => {
+                        last_id_sdf = begin_id_sdf + cmd.count;
+
+                        render_pass.set_pipeline(&self.sdf_render_pipeline);
+                        render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
+                        render_pass.set_vertex_buffer(0, self.sdf_vertex_buffer.slice(..));
+                        render_pass.set_vertex_buffer(1, sdf_instance_buffer.slice(..));
+                        render_pass.set_index_buffer(
+                            self.sdf_index_buffer.slice(..),
+                            wgpu::IndexFormat::Uint16,
+                        );
+                        render_pass.draw_indexed(
+                            0..RECT_INDICES.len() as _,
+                            0,
+                            begin_id_sdf..last_id_sdf,
+                        );
+
+                        begin_id_sdf = last_id_sdf;
+                    }
+                    WgpugdCommand::SetClipping => {}
+                }
+            }
 
             // reprintln!("{:?}", self.geometry.vertices);
             // reprintln!("{:?}", self.sdf_instances);
-
-            render_pass.set_pipeline(&self.sdf_render_pipeline);
-            render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.sdf_vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, sdf_instance_buffer.slice(..));
-            render_pass
-                .set_index_buffer(self.sdf_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(
-                0..RECT_INDICES.len() as _,
-                0,
-                0..self.sdf_instances.len() as _,
-            );
 
             // Return the ownership. Otherwise the next operation on encoder would fail
             drop(render_pass);

@@ -44,6 +44,7 @@ autoplot(res)
 ```{r}
 #| label: bench2
 #| eval: false
+
 set.seed(10)
 dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 

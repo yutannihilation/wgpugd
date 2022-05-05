@@ -21,6 +21,27 @@ pub(crate) const DEFAULT_TOLERANCE: f32 = lyon::tessellation::FillOptions::DEFAU
 // TODO: why can't we use std::u32::MAX...?
 const LAYER_FACTOR: f32 = 256.0 / std::u32::MAX as f32;
 
+#[derive(Debug, Clone)]
+pub struct DrawCommand {
+    pub count: u32,
+}
+
+impl DrawCommand {
+    fn extend(&mut self, count: u32) {
+        self.count += count;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum WgpugdCommand {
+    // Draw tessellated polygons.
+    DrawPolygon(DrawCommand),
+    // Draw shapes represented by an SDF.
+    DrawSDF(DrawCommand),
+    // Set clipping range.
+    SetClipping,
+}
+
 struct VertexCtor {
     color: u32,
     layer: u32,
@@ -94,13 +115,33 @@ impl crate::WgpuGraphicsDevice {
 
         let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
 
-        stroke_tess
+        let count = stroke_tess
             .tessellate_path(
                 path,
                 stroke_options,
                 &mut BuffersBuilder::new(&mut self.geometry, ctxt),
             )
             .unwrap();
+
+        match self.current_command {
+            // If the previous command was the same, squash them into one draw
+            // command.
+            Some(WgpugdCommand::DrawPolygon(ref mut cmd)) => {
+                cmd.extend(count.indices);
+            }
+            // If the previous command was different, push it to the command
+            // queue (if exists) and create a new command.
+            _ => {
+                let prev = self
+                    .current_command
+                    .replace(WgpugdCommand::DrawPolygon(DrawCommand {
+                        count: count.indices,
+                    }));
+                if let Some(prev_cmd) = prev {
+                    self.command_queue.push(prev_cmd)
+                }
+            }
+        }
     }
 
     fn tesselate_path_fill(&mut self, path: &Path, fill_options: &FillOptions, color: i32) {
@@ -122,13 +163,33 @@ impl crate::WgpuGraphicsDevice {
 
         let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
 
-        fill_tess
+        let count = fill_tess
             .tessellate_path(
                 path,
                 fill_options,
                 &mut BuffersBuilder::new(&mut self.geometry, ctxt),
             )
             .unwrap();
+
+        match self.current_command {
+            // If the previous command was the same, squash them into one draw
+            // command.
+            Some(WgpugdCommand::DrawPolygon(ref mut cmd)) => {
+                cmd.extend(count.indices);
+            }
+            // If the previous command was different, push it to the command
+            // queue (if exists) and create a new command.
+            _ => {
+                let prev = self
+                    .current_command
+                    .replace(WgpugdCommand::DrawPolygon(DrawCommand {
+                        count: count.indices,
+                    }));
+                if let Some(prev_cmd) = prev {
+                    self.command_queue.push(prev_cmd)
+                }
+            }
+        }
     }
 
     fn tesselate_rect_stroke(
@@ -145,13 +206,33 @@ impl crate::WgpuGraphicsDevice {
 
         let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
 
-        stroke_tess
+        let count = stroke_tess
             .tessellate_rectangle(
                 rect,
                 stroke_options,
                 &mut BuffersBuilder::new(&mut self.geometry, ctxt),
             )
             .unwrap();
+
+        match self.current_command {
+            // If the previous command was the same, squash them into one draw
+            // command.
+            Some(WgpugdCommand::DrawPolygon(ref mut cmd)) => {
+                cmd.extend(count.indices);
+            }
+            // If the previous command was different, push it to the command
+            // queue (if exists) and create a new command.
+            _ => {
+                let prev = self
+                    .current_command
+                    .replace(WgpugdCommand::DrawPolygon(DrawCommand {
+                        count: count.indices,
+                    }));
+                if let Some(prev_cmd) = prev {
+                    self.command_queue.push(prev_cmd)
+                }
+            }
+        }
     }
 
     fn tesselate_rect_fill(
@@ -168,13 +249,33 @@ impl crate::WgpuGraphicsDevice {
 
         let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
 
-        fill_tess
+        let count = fill_tess
             .tessellate_rectangle(
                 rect,
                 fill_options,
                 &mut BuffersBuilder::new(&mut self.geometry, ctxt),
             )
             .unwrap();
+
+        match self.current_command {
+            // If the previous command was the same, squash them into one draw
+            // command.
+            Some(WgpugdCommand::DrawPolygon(ref mut cmd)) => {
+                cmd.extend(count.indices);
+            }
+            // If the previous command was different, push it to the command
+            // queue (if exists) and create a new command.
+            _ => {
+                let prev = self
+                    .current_command
+                    .replace(WgpugdCommand::DrawPolygon(DrawCommand {
+                        count: count.indices,
+                    }));
+                if let Some(prev_cmd) = prev {
+                    self.command_queue.push(prev_cmd)
+                }
+            }
+        }
     }
 
     // This handles polygon(), polyline(), and line().
@@ -350,6 +451,24 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_color: unsafe { std::mem::transmute(color) },
             z: 1.0 - self.current_layer as f32 * LAYER_FACTOR,
         });
+
+        match self.current_command {
+            // If the previous command was the same, squash them into one draw
+            // command.
+            Some(WgpugdCommand::DrawSDF(ref mut cmd)) => {
+                cmd.extend(1);
+            }
+            // If the previous command was different, push it to the command
+            // queue (if exists) and create a new command.
+            _ => {
+                let prev = self
+                    .current_command
+                    .replace(WgpugdCommand::DrawSDF(DrawCommand { count: 1 }));
+                if let Some(prev_cmd) = prev {
+                    self.command_queue.push(prev_cmd)
+                }
+            }
+        }
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
