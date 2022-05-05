@@ -1,5 +1,5 @@
 struct VertexInput {
-    @location(0) pos:         vec3<f32>,
+    @location(0) pos:         vec2<f32>,
     @location(1) color:       u32,
 };
 
@@ -24,7 +24,7 @@ fn vs_main(
     vs_out.color = model.color;
 
     // Scale the X and Y positions from [0, width or height] to [-1, 1]
-    vs_out.coords = vec4<f32>(2.0 * model.pos.xy / globals.resolution - 1.0, model.pos.z, 1.0);
+    vs_out.coords = vec4<f32>(2.0 * model.pos.xy / globals.resolution - 1.0, 0.0, 1.0);
 
     return vs_out;
 }

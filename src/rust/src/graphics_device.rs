@@ -44,15 +44,13 @@ pub enum WgpugdCommand {
 
 struct VertexCtor {
     color: u32,
-    layer: u32,
     transform: Affine2,
 }
 
 impl VertexCtor {
-    fn new(color: i32, layer: u32, transform: Affine2) -> Self {
+    fn new(color: i32, transform: Affine2) -> Self {
         Self {
             color: unsafe { std::mem::transmute(color) },
-            layer,
             transform,
         }
     }
@@ -64,11 +62,7 @@ impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
         let position = self.transform.transform_point2(position_orig.into());
 
         crate::Vertex {
-            position: [
-                position[0],
-                position[1],
-                1.0 - self.layer as f32 * LAYER_FACTOR,
-            ],
+            position: position.into(),
             color: self.color,
         }
     }
@@ -80,11 +74,7 @@ impl FillVertexConstructor<crate::Vertex> for VertexCtor {
         let position = self.transform.transform_point2(position_orig.into());
 
         crate::Vertex {
-            position: [
-                position[0],
-                position[1],
-                1.0 - self.layer as f32 * LAYER_FACTOR,
-            ],
+            position: position.into(),
             color: self.color,
         }
     }
@@ -113,7 +103,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
+        let ctxt = VertexCtor::new(color, transform);
 
         let count = stroke_tess
             .tessellate_path(
@@ -161,7 +151,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
+        let ctxt = VertexCtor::new(color, transform);
 
         let count = fill_tess
             .tessellate_path(
@@ -204,7 +194,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
+        let ctxt = VertexCtor::new(color, glam::Affine2::IDENTITY);
 
         let count = stroke_tess
             .tessellate_rectangle(
@@ -247,7 +237,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
+        let ctxt = VertexCtor::new(color, glam::Affine2::IDENTITY);
 
         let count = fill_tess
             .tessellate_rectangle(
@@ -363,8 +353,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::Device;
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        self.current_layer += 1;
-
         let color = gc.col;
         let line_width = translate_line_width(gc.lwd);
         let line_cap = translate_line_cap(gc.lend);
@@ -389,8 +377,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        self.current_layer += 1;
-
         let color = gc.col;
         let line_width = translate_line_width(gc.lwd);
         let line_cap = translate_line_cap(gc.lend);
@@ -415,8 +401,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        self.current_layer += 1;
-
         let color = gc.col;
         let fill = gc.fill;
         let line_width = translate_line_width(gc.lwd);
@@ -437,8 +421,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        self.current_layer += 1;
-
         let color = gc.col;
         let fill = gc.fill;
         let line_width = translate_line_width(gc.lwd);
@@ -449,7 +431,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
             stroke_width: line_width,
             fill_color: unsafe { std::mem::transmute(fill) },
             stroke_color: unsafe { std::mem::transmute(color) },
-            z: 1.0 - self.current_layer as f32 * LAYER_FACTOR,
         });
 
         match self.current_command {
@@ -472,8 +453,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        self.current_layer += 1;
-
         let color = gc.col;
         let fill = gc.fill;
         let line_width = translate_line_width(gc.lwd);
@@ -638,9 +617,6 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
-        // new layer
-        self.current_layer += 1;
-
         // TODO
 
         // // If the clipping contains the whole layer, skip it

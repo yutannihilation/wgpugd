@@ -23,13 +23,13 @@ use wgpu::util::DeviceExt;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
-    position: [f32; 3],
+    position: [f32; 2],
     color: u32,
 }
 
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32];
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Uint32];
 
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
@@ -80,17 +80,15 @@ pub(crate) struct SDFInstance {
     stroke_width: f32,
     fill_color: u32,
     stroke_color: u32,
-    z: f32,
 }
 
 impl SDFInstance {
-    const ATTRIBS: [wgpu::VertexAttribute; 6] = wgpu::vertex_attr_array![
+    const ATTRIBS: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
         1 => Float32x2,
         2 => Float32,
         3 => Float32,
         4 => Uint32,
         5 => Uint32,
-        6 => Float32
     ];
 
     pub(crate) fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -140,7 +138,6 @@ struct WgpuGraphicsDevice {
     depth_texture_sampler: wgpu::Sampler,
 
     // On clipping or instanced rendering layer, increment this layer id
-    current_layer: usize,
     current_command: Option<WgpugdCommand>,
     command_queue: Vec<WgpugdCommand>,
 
@@ -361,7 +358,6 @@ impl WgpuGraphicsDevice {
             depth_texture_view,
             depth_texture_sampler,
 
-            current_layer: 0,
             current_command: None,
             command_queue: Vec::new(),
 

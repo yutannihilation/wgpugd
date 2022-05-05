@@ -25,7 +25,6 @@ struct InstanceInput {
     @location(3) stroke_width: f32,
     @location(4) fill_color:   u32,
     @location(5) stroke_color: u32,
-    @location(6) z:            f32,
 };
 
 @vertex
@@ -35,7 +34,7 @@ fn vs_main(
 ) -> VertexOutput {
     var vs_out: VertexOutput;
 
-    vs_out.coords = vec4<f32>(model.pos, instance.z, 1.0);
+    vs_out.coords = vec4<f32>(model.pos, 0.0, 1.0);
     // Y-axis is opposite
     vs_out.center = vec2<f32>(instance.center.x, globals.resolution.y - instance.center.y);
     vs_out.radius = instance.radius;
