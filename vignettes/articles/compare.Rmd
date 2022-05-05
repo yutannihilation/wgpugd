@@ -18,12 +18,6 @@ agg <- function(...) {
 }
 ```
 
-## Debug
-
-```{r}
-knitr::fig_path()
-```
-
 
 ## Line
 
