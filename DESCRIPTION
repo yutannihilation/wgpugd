@@ -23,5 +23,6 @@ Suggests:
 Config/Needs/website:
     ragg,
     ggplot2,
+    tidyr,
     bench,
     ggbeeswarm
