@@ -1,5 +1,7 @@
 ---
 title: "Comparison with other graphics device"
+resource_files:
+  - figure
 ---
 
 ```{r, include = FALSE}
