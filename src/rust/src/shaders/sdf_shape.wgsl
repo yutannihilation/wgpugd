@@ -13,7 +13,7 @@ struct VertexOutput {
 };
 
 struct GlobalsUniform {
-    @location(0) resolution:      vec2<f32>,
+    @location(0) resolution: vec2<f32>,
 };
 
 @group(0) @binding(0)

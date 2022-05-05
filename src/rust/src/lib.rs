@@ -104,7 +104,6 @@ impl SDFInstance {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Globals {
     resolution: [f32; 2],
-    _padding: [f32; 2], // TODO: this is needed for aligning to 16 bit
 }
 
 #[allow(dead_code)]
