@@ -17,9 +17,6 @@ use lyon::lyon_tessellation::VertexBuffers;
 use render_pipeline::create_render_pipeline;
 use wgpu::util::DeviceExt;
 
-// This should match with shaders.wgsl
-const MAX_CLIPPINGS: usize = 64;
-
 // For general shapes --------------------------------------------
 
 #[repr(C)]
@@ -27,12 +24,11 @@ const MAX_CLIPPINGS: usize = 64;
 struct Vertex {
     position: [f32; 3],
     color: u32,
-    clipping_id: i32,
 }
 
 impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 3] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32, 2 => Sint32];
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32];
 
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
@@ -110,37 +106,6 @@ impl SDFInstance {
 struct Globals {
     resolution: [f32; 2],
     _padding: [f32; 2], // TODO: this is needed for aligning to 16 bit
-    layer_clippings: [[[f32; 2]; 2]; MAX_CLIPPINGS],
-}
-
-struct LayerClippings {
-    clippings: Vec<[[f32; 2]; 2]>,
-}
-
-impl LayerClippings {
-    const NO_CLIPPING: [[f32; 2]; 2] = [[f32::MIN, f32::MIN], [f32::MAX, f32::MAX]];
-
-    fn new() -> Self {
-        Self { clippings: vec![] }
-    }
-
-    fn add_clipping(&mut self, from: (f64, f64), to: (f64, f64)) -> usize {
-        self.clippings
-            .push([[from.0 as _, from.1 as _], [to.0 as _, to.1 as _]]);
-
-        self.clippings.len() - 1
-    }
-
-    fn to_array(&self) -> [[[f32; 2]; 2]; MAX_CLIPPINGS] {
-        let mut clippings = [Self::NO_CLIPPING; MAX_CLIPPINGS];
-
-        for (i, c) in self.clippings.iter().take(MAX_CLIPPINGS).enumerate() {
-            // layer 0 is reserved for no clipping
-            clippings[i + 1] = *c;
-        }
-
-        clippings
-    }
 }
 
 #[allow(dead_code)]
@@ -172,9 +137,6 @@ struct WgpuGraphicsDevice {
     // depth texture
     depth_texture_view: wgpu::TextureView,
     depth_texture_sampler: wgpu::Sampler,
-
-    layer_clippings: LayerClippings,
-    current_clipping_id: i32,
 
     // On clipping or instanced rendering layer, increment this layer id
     current_layer: usize,
@@ -396,9 +358,6 @@ impl WgpuGraphicsDevice {
             depth_texture_view,
             depth_texture_sampler,
 
-            layer_clippings: LayerClippings::new(),
-            current_clipping_id: -1,
-
             current_layer: 0,
 
             width,
@@ -446,7 +405,6 @@ impl WgpuGraphicsDevice {
             bytemuck::cast_slice(&[Globals {
                 resolution: [self.width as _, self.height as _],
                 _padding: [0., 0.],
-                layer_clippings: self.layer_clippings.to_array(),
             }]),
         );
 

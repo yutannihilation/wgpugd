@@ -23,16 +23,14 @@ const LAYER_FACTOR: f32 = 256.0 / std::u32::MAX as f32;
 
 struct VertexCtor {
     color: u32,
-    clipping_id: i32,
     layer: u32,
     transform: Affine2,
 }
 
 impl VertexCtor {
-    fn new(color: i32, clipping_id: i32, layer: u32, transform: Affine2) -> Self {
+    fn new(color: i32, layer: u32, transform: Affine2) -> Self {
         Self {
             color: unsafe { std::mem::transmute(color) },
-            clipping_id,
             layer,
             transform,
         }
@@ -51,7 +49,6 @@ impl StrokeVertexConstructor<crate::Vertex> for VertexCtor {
                 1.0 - self.layer as f32 * LAYER_FACTOR,
             ],
             color: self.color,
-            clipping_id: self.clipping_id,
         }
     }
 }
@@ -68,7 +65,6 @@ impl FillVertexConstructor<crate::Vertex> for VertexCtor {
                 1.0 - self.layer as f32 * LAYER_FACTOR,
             ],
             color: self.color,
-            clipping_id: self.clipping_id,
         }
     }
 }
@@ -96,12 +92,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(
-            color,
-            self.current_clipping_id,
-            self.current_layer as _,
-            transform,
-        );
+        let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
 
         stroke_tess
             .tessellate_path(
@@ -129,12 +120,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(
-            color,
-            self.current_clipping_id,
-            self.current_layer as _,
-            transform,
-        );
+        let ctxt = VertexCtor::new(color, self.current_layer as _, transform);
 
         fill_tess
             .tessellate_path(
@@ -157,12 +143,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut stroke_tess = StrokeTessellator::new();
 
-        let ctxt = VertexCtor::new(
-            color,
-            self.current_clipping_id,
-            self.current_layer as _,
-            glam::Affine2::IDENTITY,
-        );
+        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
 
         stroke_tess
             .tessellate_rectangle(
@@ -185,12 +166,7 @@ impl crate::WgpuGraphicsDevice {
 
         let mut fill_tess = FillTessellator::new();
 
-        let ctxt = VertexCtor::new(
-            color,
-            self.current_clipping_id,
-            self.current_layer as _,
-            glam::Affine2::IDENTITY,
-        );
+        let ctxt = VertexCtor::new(color, self.current_layer as _, glam::Affine2::IDENTITY);
 
         fill_tess
             .tessellate_rectangle(
@@ -546,18 +522,20 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         // new layer
         self.current_layer += 1;
 
-        // If the clipping contains the whole layer, skip it
-        if from.0 <= 0. && from.1 <= 0. && to.0 >= self.width as _ && to.1 >= self.height as _ {
-            self.current_clipping_id = -1;
-        } else {
-            let clipping_id = self.layer_clippings.add_clipping(from, to);
+        // TODO
 
-            if clipping_id < crate::MAX_CLIPPINGS {
-                self.current_clipping_id = clipping_id as _;
-            } else {
-                reprintln!("[WARN] too many clippings! {from:?}, {to:?} is ignored");
-            }
-        }
+        // // If the clipping contains the whole layer, skip it
+        // if from.0 <= 0. && from.1 <= 0. && to.0 >= self.width as _ && to.1 >= self.height as _ {
+        //     self.current_clipping_id = -1;
+        // } else {
+        //     let clipping_id = self.layer_clippings.add_clipping(from, to);
+
+        //     if clipping_id < crate::MAX_CLIPPINGS {
+        //         self.current_clipping_id = clipping_id as _;
+        //     } else {
+        //         reprintln!("[WARN] too many clippings! {from:?}, {to:?} is ignored");
+        //     }
+        // }
     }
 
     fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
