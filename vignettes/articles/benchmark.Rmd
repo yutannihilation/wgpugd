@@ -15,7 +15,6 @@ knitr::opts_chunk$set(
 
 ```{r}
 #| label: bench1
-#| eval: false
 
 library(ggplot2)
 
@@ -39,29 +38,67 @@ autoplot(res)
 ```
 
 
-### Actual protting
+### Actual plotting
 
 ```{r}
 #| label: bench2
-#| eval: false
 
 set.seed(10)
 dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 
+p <- ggplot(dsamp, aes(carat, price)) +
+  geom_point(aes(colour = clarity))
+
 res <- bench::mark(
   wgpugd = {
     wgpugd::wgpugd(file, 10, 10)
-    ggplot(dsamp, aes(carat, price)) +
-      geom_point(aes(colour = clarity))
+    print(p)
     dev.off()
   },
   ragg =  {
     ragg::agg_png(file, 10, 10, unit = "in")
-    ggplot(dsamp, aes(carat, price)) +
-      geom_point(aes(colour = clarity))
+    print(p)
     dev.off()
   },
   min_iterations = 30
+)
+
+res
+
+autoplot(res)
+```
+
+### Multiple plotting
+
+```{r}
+#| label: bench3
+
+set.seed(10)
+dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
+
+p <- ggplot(dsamp, aes(carat, price)) +
+  geom_point(aes(colour = clarity))
+
+temp_dir <- tempfile()
+dir.create(temp_dir)
+file <- file.path(temp_dir, "p%03d.png")
+
+res <- bench::mark(
+  wgpugd = {
+    wgpugd::wgpugd(file, 10, 10)
+    for (i in 1:20) {
+      print(p)
+    }
+    dev.off()
+  },
+  ragg =  {
+    ragg::agg_png(file, 10, 10, unit = "in")
+    for (i in 1:20) {
+      print(p)
+    }
+    dev.off()
+  },
+  min_iterations = 10
 )
 
 res
