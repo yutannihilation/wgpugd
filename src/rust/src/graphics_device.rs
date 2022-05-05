@@ -652,7 +652,14 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
         // nothing to render. So, skip rendering at first.
         if self.cur_page != 0 {
             self.render().unwrap();
+
             pollster::block_on(self.write_png());
+
+            self.current_command = None;
+            self.command_queue.clear();
+            self.geometry.indices.clear();
+            self.geometry.vertices.clear();
+            self.sdf_instances.clear();
         }
 
         self.cur_page += 1;
