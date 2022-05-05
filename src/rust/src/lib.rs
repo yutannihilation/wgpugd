@@ -63,6 +63,12 @@ impl SDFVertex {
     }
 }
 
+// TODO: measure and set nicer default values
+const VERTEX_SIZE: usize = std::mem::size_of::<Vertex>();
+const VERTEX_BUFFER_INITIAL_SIZE: u64 = VERTEX_SIZE as u64 * 10000;
+const INDEX_SIZE: usize = std::mem::size_of::<u32>();
+const INDEX_BUFFER_INITIAL_SIZE: u64 = INDEX_SIZE as u64 * 10000;
+
 #[rustfmt::skip]
 const RECT_VERTICES: &[SDFVertex] = &[
     SDFVertex { position: [ 1.0, -1.0] },
@@ -120,6 +126,9 @@ struct WgpuGraphicsDevice {
     globals_uniform_buffer: wgpu::Buffer,
 
     render_pipeline: wgpu::RenderPipeline,
+
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
 
     sdf_vertex_buffer: wgpu::Buffer,
     sdf_index_buffer: wgpu::Buffer,
@@ -304,6 +313,20 @@ impl WgpuGraphicsDevice {
             4,
         );
 
+        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("wgpugd vertex buffer"),
+            size: VERTEX_BUFFER_INITIAL_SIZE,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("wgpugd index buffer"),
+            size: INDEX_BUFFER_INITIAL_SIZE,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         let sdf_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("wgpugd vertex buffer"),
             contents: bytemuck::cast_slice(RECT_VERTICES),
@@ -344,6 +367,9 @@ impl WgpuGraphicsDevice {
 
             render_pipeline,
 
+            vertex_buffer,
+            index_buffer,
+
             sdf_vertex_buffer,
             sdf_index_buffer,
             sdf_render_pipeline,
@@ -379,21 +405,17 @@ impl WgpuGraphicsDevice {
             self.command_queue.push(cmd.clone());
         }
 
-        let vertex_buffer = &self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("wgpugd vertex buffer"),
-                contents: bytemuck::cast_slice(self.geometry.vertices.as_slice()),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-
-        let index_buffer = &self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("wgpugd index buffer"),
-                contents: bytemuck::cast_slice(self.geometry.indices.as_slice()),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+        // TODO: recreate the buffer when the data size is over the current buffer size.
+        self.queue.write_buffer(
+            &self.vertex_buffer,
+            0,
+            bytemuck::cast_slice(self.geometry.vertices.as_slice()),
+        );
+        self.queue.write_buffer(
+            &self.index_buffer,
+            0,
+            bytemuck::cast_slice(self.geometry.indices.as_slice()),
+        );
 
         let sdf_instance_buffer =
             &self
@@ -460,9 +482,16 @@ impl WgpuGraphicsDevice {
 
                         render_pass.set_pipeline(&self.render_pipeline);
                         render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
-                        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                        render_pass
-                            .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                        render_pass.set_vertex_buffer(
+                            0,
+                            self.vertex_buffer
+                                .slice(0..(VERTEX_SIZE * self.geometry.vertices.len()) as _),
+                        );
+                        render_pass.set_index_buffer(
+                            self.index_buffer
+                                .slice(0..(INDEX_SIZE * self.geometry.indices.len()) as _),
+                            wgpu::IndexFormat::Uint32,
+                        );
                         render_pass.draw_indexed(begin_id_polygon..last_id_polygon, 0, 0..1);
 
                         begin_id_polygon = last_id_polygon;
