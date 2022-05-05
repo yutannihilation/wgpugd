@@ -18,9 +18,6 @@ use crate::text::FONTDB;
 // TODO: determine tolerance nicely
 pub(crate) const DEFAULT_TOLERANCE: f32 = lyon::tessellation::FillOptions::DEFAULT_TOLERANCE;
 
-// TODO: why can't we use std::u32::MAX...?
-const LAYER_FACTOR: f32 = 256.0 / std::u32::MAX as f32;
-
 #[derive(Debug, Clone)]
 pub struct DrawCommand {
     pub count: u32,
@@ -39,7 +36,12 @@ pub enum WgpugdCommand {
     // Draw shapes represented by an SDF.
     DrawSDF(DrawCommand),
     // Set clipping range.
-    SetClipping,
+    SetClipping {
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    },
 }
 
 struct VertexCtor {
@@ -617,20 +619,32 @@ impl DeviceDriver for crate::WgpuGraphicsDevice {
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
-        // TODO
+        let x0 = from.0.clamp(0.0, self.width as _);
+        let x1 = to.0.clamp(0.0, self.width as _);
+        let y0 = from.1.clamp(0.0, self.height as _);
+        let y1 = to.1.clamp(0.0, self.height as _);
 
-        // // If the clipping contains the whole layer, skip it
-        // if from.0 <= 0. && from.1 <= 0. && to.0 >= self.width as _ && to.1 >= self.height as _ {
-        //     self.current_clipping_id = -1;
-        // } else {
-        //     let clipping_id = self.layer_clippings.add_clipping(from, to);
+        let cmd = WgpugdCommand::SetClipping {
+            x: x0.min(x1) as u32,
+            // Y-axis is upside down
+            y: self.height - y0.max(y1) as u32,
+            width: (x0 - x1).abs() as u32,
+            height: (y0 - y1).abs() as u32,
+        };
 
-        //     if clipping_id < crate::MAX_CLIPPINGS {
-        //         self.current_clipping_id = clipping_id as _;
-        //     } else {
-        //         reprintln!("[WARN] too many clippings! {from:?}, {to:?} is ignored");
-        //     }
-        // }
+        let prev = self.current_command.replace(cmd);
+        match prev {
+            Some(WgpugdCommand::SetClipping { .. }) => {
+                // If the new command just replacing the current clipping, do
+                // nothing; just discard the old one.
+            }
+            Some(prev_cmd_inner) => {
+                self.command_queue.push(prev_cmd_inner);
+            }
+            None => {
+                // Do nothing
+            }
+        }
     }
 
     fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {

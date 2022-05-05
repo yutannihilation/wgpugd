@@ -488,7 +488,12 @@ impl WgpuGraphicsDevice {
 
                         begin_id_sdf = last_id_sdf;
                     }
-                    WgpugdCommand::SetClipping => {}
+                    WgpugdCommand::SetClipping {
+                        x,
+                        y,
+                        height,
+                        width,
+                    } => render_pass.set_scissor_rect(*x, *y, *width, *height),
                 }
             }
 
