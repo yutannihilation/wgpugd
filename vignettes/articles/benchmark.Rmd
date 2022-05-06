@@ -5,6 +5,7 @@ title: "benchmark"
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
+  eval = FALSE,
   comment = "#>"
 )
 ```
@@ -86,14 +87,14 @@ file <- file.path(temp_dir, "p%03d.png")
 res <- bench::mark(
   wgpugd = {
     wgpugd::wgpugd(file, 10, 10)
-    for (i in 1:20) {
+    for (i in 1:50) {
       print(p)
     }
     dev.off()
   },
   ragg =  {
     ragg::agg_png(file, 10, 10, unit = "in")
-    for (i in 1:20) {
+    for (i in 1:50) {
       print(p)
     }
     dev.off()
