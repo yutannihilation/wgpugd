@@ -57,7 +57,7 @@ set.seed(10)
 dsamp <- diamonds[sample(nrow(diamonds), 1000), ]
 
 ggplot(dsamp, aes(carat, price)) +
-  geom_point(aes(colour = clarity)) +
+  geom_point(aes(colour = clarity), alpha = 0.3, size = 20) +
   ggtitle("＼( 'ω')／ウオオオオオオアアアアーーーーッッッ！！！！") +
   theme(text = element_text(size = 30, family = "Noto Sans JP"))
 

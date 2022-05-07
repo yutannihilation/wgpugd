@@ -119,6 +119,7 @@ struct WgpuGraphicsDevice {
 
     // For writing out a PNG
     texture: wgpu::Texture,
+    texture_view: wgpu::TextureView,
     texture_extent: wgpu::Extent3d,
     output_buffer: wgpu::Buffer,
 
@@ -133,6 +134,11 @@ struct WgpuGraphicsDevice {
     sdf_vertex_buffer: wgpu::Buffer,
     sdf_index_buffer: wgpu::Buffer,
     sdf_render_pipeline: wgpu::RenderPipeline,
+
+    post_process_bind_group: wgpu::BindGroup,
+    post_process_render_pipelines: Vec<wgpu::RenderPipeline>,
+    post_processed_texture: wgpu::Texture,
+    post_processed_texture_view: wgpu::TextureView,
 
     sdf_instances: Vec<SDFInstance>,
 
@@ -204,8 +210,9 @@ impl WgpuGraphicsDevice {
             // The texture is a rendering target and passed in
             // `color_attachments`, so `RENDER_ATTACHMENT` is needed. Also, it's
             // where the image is copied from so `COPY_SRC` is needed.
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
         });
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // This code is from the example on the wgpu's repo. Why this is needed?
         // The comment on there says it's WebGPU's requirement that the buffer
@@ -320,12 +327,85 @@ impl WgpuGraphicsDevice {
             4,
         );
 
+        let post_process_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("wgpugd globals bind group layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let post_processed_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("wgpugd framebuffer for post processing"),
+            size: texture_extent,
+            mip_level_count: 1,
+            sample_count: 1, // TODO
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        });
+        let post_processed_texture_view =
+            post_processed_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let post_process_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("wgpugd sampler for post processing"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        let post_process_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("wgpugd bind group for post processing"),
+            layout: &post_process_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&post_process_sampler),
+                },
+            ],
+        });
+
+        let post_process_render_pipeline = create_render_pipeline(
+            &device,
+            "wgpugd render pipeline layout for post processing",
+            "wgpugd render pipeline for post processing",
+            &[&post_process_bind_group_layout],
+            &wgpu::include_wgsl!("shaders/nega.wgsl"),
+            &[SDFVertex::desc()],
+            4,
+        );
+        let post_process_render_pipelines = vec![post_process_render_pipeline];
+
         let geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
 
         Self {
             device,
             queue,
             texture,
+            texture_view,
             texture_extent,
             output_buffer,
 
@@ -340,6 +420,11 @@ impl WgpuGraphicsDevice {
             sdf_vertex_buffer,
             sdf_index_buffer,
             sdf_render_pipeline,
+
+            post_process_bind_group,
+            post_processed_texture,
+            post_processed_texture_view,
+            post_process_render_pipelines,
 
             sdf_instances: Vec::new(),
 
@@ -398,10 +483,6 @@ impl WgpuGraphicsDevice {
             }]),
         );
 
-        let texture_view = self
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -413,7 +494,7 @@ impl WgpuGraphicsDevice {
                 label: Some("wgpugd render pass"),
                 color_attachments: &[wgpu::RenderPassColorAttachment {
                     view: &self.multisampled_framebuffer,
-                    resolve_target: Some(&texture_view),
+                    resolve_target: Some(&self.texture_view),
                     ops: wgpu::Operations {
                         // TODO: set the proper error from the value of gp->bg
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
@@ -479,15 +560,38 @@ impl WgpuGraphicsDevice {
                     } => render_pass.set_scissor_rect(*x, *y, *width, *height),
                 }
             }
+        }
 
-            // reprintln!("{:?}", self.geometry.vertices);
-            // reprintln!("{:?}", self.sdf_instances);
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("wgpugd render pass 2"),
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: &self.multisampled_framebuffer,
+                    resolve_target: Some(&self.post_processed_texture_view),
+                    ops: wgpu::Operations {
+                        // TODO: set the proper error from the value of gp->bg
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        // As described in the wgpu's example of MSAA, if the
+                        // pre-resolved MSAA data is not used anywhere else, we
+                        // should set this to false to save memory.
+                        store: false,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            });
 
-            // Return the ownership. Otherwise the next operation on encoder would fail
-            drop(render_pass);
+            render_pass.set_pipeline(&self.post_process_render_pipelines[0]);
+            render_pass.set_bind_group(0, &self.post_process_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.sdf_vertex_buffer.slice(..));
+            render_pass
+                .set_index_buffer(self.sdf_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..RECT_INDICES.len() as _, 0, 0..1);
+            // render_pass.draw(0..3, 0..1);
+        }
 
+        {
             encoder.copy_texture_to_buffer(
-                self.texture.as_image_copy(),
+                self.post_processed_texture.as_image_copy(),
                 wgpu::ImageCopyBuffer {
                     buffer: &self.output_buffer,
                     layout: wgpu::ImageDataLayout {
