@@ -1,3 +1,6 @@
+# This repository is archived! My new attempt is here: https://github.com/yutannihilation/vellogd-r
+
+----------------------
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
